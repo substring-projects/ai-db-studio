@@ -1,37 +1,38 @@
 import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-import electron from 'vite-plugin-electron';
-import renderer from 'vite-plugin-electron-renderer';
 import path from 'node:path';
+import electron from 'vite-plugin-electron/simple';
+import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [
     react(),
-    electron([
-      {
-        entry: 'src/main/index.ts',
+    electron({
+      main: {
+        entry: 'src/main/main.ts',
         vite: {
           build: {
-            outDir: 'dist-electron',
             rollupOptions: {
               external: ['pg', 'mysql2', 'node:sqlite', 'electron'],
             },
           },
         },
       },
-      {
-        entry: 'src/preload/index.ts',
-        onstart(args) {
-          args.reload();
-        },
+      preload: {
+        input: path.join(__dirname, 'src/preload/preload.ts'),
         vite: {
           build: {
-            outDir: 'dist-electron',
+            rollupOptions: {
+              output: {
+                format: 'cjs',
+                entryFileNames: '[name].cjs',
+                inlineDynamicImports: true,
+              },
+            },
           },
         },
       },
-    ]),
-    renderer(),
+      renderer: {},
+    }),
   ],
   resolve: {
     alias: {

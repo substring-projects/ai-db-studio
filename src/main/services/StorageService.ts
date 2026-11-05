@@ -1,4 +1,5 @@
-import { app } from 'electron';
+import electron from 'electron';
+const { app } = electron;
 import fs from 'node:fs';
 import path from 'node:path';
 import { ConnectionProfile, SqlDraft, QueryHistoryItem, WorkspaceSettings } from '../../shared/types';

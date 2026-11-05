@@ -1,4 +1,5 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import electron from 'electron';
+const { app, BrowserWindow, ipcMain } = electron;
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { StorageService } from './services/StorageService';
@@ -20,7 +21,7 @@ function createWindow() {
     titleBarStyle: 'hiddenInset',
     backgroundColor: '#18191c',
     webPreferences: {
-      preload: path.join(__dirname, 'index.js'),
+      preload: path.join(__dirname, 'preload.cjs'),
       sandbox: false,
       nodeIntegration: false,
       contextIsolation: true,
