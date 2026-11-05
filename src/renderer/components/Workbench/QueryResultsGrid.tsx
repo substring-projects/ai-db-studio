@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 import { QueryResult } from '../../../shared/types';
 import { useStudio } from '../../context/StudioContext';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
 
 interface QueryResultsGridProps {
   results: QueryResult | null;
@@ -176,8 +178,8 @@ export const QueryResultsGrid: React.FC<QueryResultsGridProps> = ({
 
   if (loading) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center text-studio-muted text-xs gap-3">
-        <div className="w-6 h-6 border-2 border-studio-accent border-t-transparent rounded-full animate-spin" />
+      <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground text-xs gap-3 bg-studio-bg">
+        <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
         <span>Executing query & streaming records…</span>
       </div>
     );
@@ -185,8 +187,8 @@ export const QueryResultsGrid: React.FC<QueryResultsGridProps> = ({
 
   if (error) {
     return (
-      <div className="flex-1 p-6 flex flex-col items-center justify-center text-red-400 text-xs text-center max-w-lg mx-auto">
-        <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl leading-relaxed font-mono select-text">
+      <div className="flex-1 p-6 flex flex-col items-center justify-center text-destructive text-xs text-center max-w-lg mx-auto bg-studio-bg">
+        <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-xl leading-relaxed font-mono select-text">
           {error}
         </div>
       </div>
@@ -195,7 +197,7 @@ export const QueryResultsGrid: React.FC<QueryResultsGridProps> = ({
 
   if (!results) {
     return (
-      <div className="flex-1 flex items-center justify-center text-studio-muted text-xs">
+      <div className="flex-1 flex items-center justify-center text-muted-foreground text-xs bg-studio-bg">
         Run a statement or select a table from the Database Explorer.
       </div>
     );
@@ -209,21 +211,21 @@ export const QueryResultsGrid: React.FC<QueryResultsGridProps> = ({
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-studio-bg">
       {/* Grid Status Header & Toolbar */}
-      <div className="px-4 py-2 flex flex-wrap items-center justify-between gap-2 border-b border-studio-border bg-studio-surface/50 text-xs shrink-0 select-none">
+      <div className="px-4 py-2 flex flex-wrap items-center justify-between gap-2 border-b border-border bg-card/60 text-xs shrink-0 select-none">
         {/* Left: Stats & Quick Search */}
         <div className="flex items-center gap-3 font-mono">
-          <span className="flex items-center gap-1.5 text-studio-muted">
-            <Hash className="w-3.5 h-3.5 text-studio-accent" />
-            <span className="text-studio-text font-semibold">{results.rowCount}</span> rows
+          <span className="flex items-center gap-1.5 text-muted-foreground">
+            <Hash className="w-3.5 h-3.5 text-primary" />
+            <span className="text-foreground font-semibold">{results.rowCount}</span> rows
           </span>
-          <span className="flex items-center gap-1.5 text-studio-muted">
-            <Clock className="w-3.5 h-3.5 text-studio-accent" />
-            <span className="text-studio-text font-semibold">{results.executionTimeMs}</span> ms
+          <span className="flex items-center gap-1.5 text-muted-foreground">
+            <Clock className="w-3.5 h-3.5 text-primary" />
+            <span className="text-foreground font-semibold">{results.executionTimeMs}</span> ms
           </span>
 
           {/* Quick in-memory search */}
           <div className="relative flex items-center ml-2">
-            <Search className="w-3.5 h-3.5 text-studio-muted absolute left-2 pointer-events-none" />
+            <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
@@ -232,7 +234,7 @@ export const QueryResultsGrid: React.FC<QueryResultsGridProps> = ({
                 setPage(1);
               }}
               placeholder="Search in results…"
-              className="pl-7 pr-2 py-1 w-44 text-[11px] bg-studio-bg border border-studio-border rounded-md text-studio-text placeholder-studio-muted focus:outline-none focus:border-studio-accent"
+              className="pl-8 pr-2.5 py-1 w-44 text-[11px] bg-background border border-input rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             />
           </div>
         </div>
@@ -240,64 +242,74 @@ export const QueryResultsGrid: React.FC<QueryResultsGridProps> = ({
         {/* Right: Actions (Insert, Delete, Export CSV/JSON, Refresh) */}
         <div className="flex items-center gap-2">
           {tableName && onInsertRow && (
-            <button
+            <Button
               onClick={onInsertRow}
-              className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-studio-sidebar bg-studio-accent hover:bg-studio-accentHover rounded-md shadow-xs transition-all cursor-pointer"
+              variant="accent"
+              size="sm"
+              className="gap-1.5 text-xs font-semibold"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Insert Row</span>
-            </button>
+            </Button>
           )}
 
           {tableName && onDeleteRow && selectedRowObj && (
-            <button
+            <Button
               onClick={() => onDeleteRow(selectedRowObj.originalIndex, selectedRowObj.row)}
-              className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-md transition-colors cursor-pointer"
+              variant="destructive"
+              size="sm"
+              className="gap-1.5 text-xs"
             >
               <Trash2 className="w-3 h-3" />
               <span>Delete Row</span>
-            </button>
+            </Button>
           )}
 
           {onRefresh && (
-            <button
+            <Button
               onClick={onRefresh}
               title="Refresh Data"
-              className="p-1.5 text-studio-muted hover:text-studio-text hover:bg-white/5 rounded-md transition-colors cursor-pointer"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-muted-foreground hover:text-foreground"
             >
               <RefreshCw className="w-3.5 h-3.5" />
-            </button>
+            </Button>
           )}
 
-          <div className="h-4 w-px bg-studio-border mx-1" />
+          <div className="h-4 w-px bg-border mx-0.5" />
 
           {/* Export Dropdown / Buttons */}
-          <button
+          <Button
             onClick={exportCsv}
             title="Export to CSV"
-            className="flex items-center gap-1 px-2 py-1 text-studio-muted hover:text-studio-text rounded-md hover:bg-white/5 transition-colors cursor-pointer text-[11px]"
+            variant="outline"
+            size="sm"
+            className="gap-1 text-[11px] h-7 px-2"
           >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-500" />
             <span>CSV</span>
-          </button>
+          </Button>
 
-          <button
+          <Button
             onClick={exportJson}
             title="Export to JSON"
-            className="flex items-center gap-1 px-2 py-1 text-studio-muted hover:text-studio-text rounded-md hover:bg-white/5 transition-colors cursor-pointer text-[11px]"
+            variant="outline"
+            size="sm"
+            className="gap-1 text-[11px] h-7 px-2"
           >
-            <FileJson className="w-3.5 h-3.5 text-blue-400" />
+            <FileJson className="w-3.5 h-3.5 text-blue-500" />
             <span>JSON</span>
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* Table Data View */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto bg-studio-bg">
         <table className="w-full border-collapse text-left text-xs font-mono select-text">
-          <thead className="sticky top-0 bg-studio-surface border-b border-studio-border z-10 shadow-xs">
+          <thead className="sticky top-0 bg-card border-b border-border z-10 shadow-2xs">
             <tr>
-              <th className="w-12 px-3 py-2 text-center text-[10px] text-studio-muted border-r border-studio-border font-semibold select-none">
+              <th className="w-12 px-3 py-2 text-center text-[10px] text-muted-foreground border-r border-border font-semibold select-none">
                 #
               </th>
               {results.columns.map((col) => {
@@ -306,19 +318,19 @@ export const QueryResultsGrid: React.FC<QueryResultsGridProps> = ({
                   <th
                     key={col}
                     onClick={() => handleSort(col)}
-                    className="px-3 py-2 text-studio-text font-semibold border-r border-studio-border truncate max-w-xs cursor-pointer hover:bg-white/5 select-none transition-colors"
+                    className="px-3 py-2 text-foreground font-semibold border-r border-border truncate max-w-xs cursor-pointer hover:bg-muted/80 select-none transition-colors"
                   >
                     <div className="flex items-center justify-between gap-1.5">
                       <span className="truncate">{col}</span>
-                      <span className="text-studio-muted shrink-0">
+                      <span className="text-muted-foreground shrink-0">
                         {isSorted ? (
                           sortDir === 'ASC' ? (
-                            <ArrowUp className="w-3 h-3 text-studio-accent" />
+                            <ArrowUp className="w-3 h-3 text-primary" />
                           ) : (
-                            <ArrowDown className="w-3 h-3 text-studio-accent" />
+                            <ArrowDown className="w-3 h-3 text-primary" />
                           )
                         ) : (
-                          <ArrowUpDown className="w-3 h-3 opacity-30 hover:opacity-100" />
+                          <ArrowUpDown className="w-3 h-3 opacity-35 hover:opacity-100" />
                         )}
                       </span>
                     </div>
@@ -332,7 +344,7 @@ export const QueryResultsGrid: React.FC<QueryResultsGridProps> = ({
               <tr>
                 <td
                   colSpan={results.columns.length + 1}
-                  className="px-4 py-8 text-center text-studio-muted italic"
+                  className="px-4 py-8 text-center text-muted-foreground italic"
                 >
                   {searchQuery ? 'No matching rows found.' : 'No records returned.'}
                 </td>
@@ -346,15 +358,15 @@ export const QueryResultsGrid: React.FC<QueryResultsGridProps> = ({
                   <tr
                     key={originalIndex}
                     onClick={() => setSelectedRowIndex(isSelected ? null : pIdx)}
-                    className={`border-b border-studio-border/50 transition-colors cursor-pointer ${
+                    className={`border-b border-border/50 transition-colors cursor-pointer ${
                       isSelected
-                        ? 'bg-studio-accent/15'
+                        ? 'bg-primary/15'
                         : pIdx % 2 === 1
-                        ? 'bg-white/[0.015] hover:bg-studio-accent/5'
-                        : 'hover:bg-studio-accent/5'
+                        ? 'bg-muted/30 hover:bg-accent/70'
+                        : 'hover:bg-accent/70'
                     }`}
                   >
-                    <td className="px-3 py-1.5 text-center text-[10px] text-studio-muted border-r border-studio-border/50 select-none">
+                    <td className="px-3 py-1.5 text-center text-[10px] text-muted-foreground border-r border-border/50 select-none">
                       {rowDisplayNumber}
                     </td>
                     {row.map((cell, cIdx) => {
@@ -369,13 +381,13 @@ export const QueryResultsGrid: React.FC<QueryResultsGridProps> = ({
                             }
                           }}
                           title={tableName ? 'Double-click to edit cell, click icon to copy' : 'Click icon to copy'}
-                          className="px-3 py-1.5 border-r border-studio-border/50 truncate max-w-sm relative group"
+                          className="px-3 py-1.5 border-r border-border/50 truncate max-w-sm relative group"
                         >
                           <span
                             className={
                               cell === null || cell === undefined
-                                ? 'text-studio-muted/60 italic'
-                                : 'text-studio-text'
+                                ? 'text-muted-foreground/60 italic'
+                                : 'text-foreground'
                             }
                           >
                             {cell === null || cell === undefined ? 'NULL' : String(cell)}
@@ -383,13 +395,13 @@ export const QueryResultsGrid: React.FC<QueryResultsGridProps> = ({
 
                           <button
                             onClick={(e) => copyCell(cell, pIdx, cIdx, e)}
-                            className="absolute right-1.5 top-1.5 p-1 rounded hover:bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="absolute right-1.5 top-1.5 p-1 rounded hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity"
                             title="Copy value"
                           >
                             {isCopied ? (
-                              <Check className="w-3 h-3 text-emerald-400" />
+                              <Check className="w-3 h-3 text-emerald-500" />
                             ) : (
-                              <Copy className="w-2.5 h-2.5 text-studio-muted" />
+                              <Copy className="w-2.5 h-2.5 text-muted-foreground" />
                             )}
                           </button>
                         </td>
@@ -404,8 +416,8 @@ export const QueryResultsGrid: React.FC<QueryResultsGridProps> = ({
       </div>
 
       {/* Pagination Footer */}
-      <div className="h-9 px-4 flex items-center justify-between border-t border-studio-border bg-studio-surface/50 text-[11px] shrink-0 select-none">
-        <div className="flex items-center gap-2 text-studio-muted">
+      <div className="h-9 px-4 flex items-center justify-between border-t border-border bg-card/60 text-[11px] shrink-0 select-none">
+        <div className="flex items-center gap-2 text-muted-foreground">
           <span>Rows per page:</span>
           <select
             value={pageSize}
@@ -413,7 +425,7 @@ export const QueryResultsGrid: React.FC<QueryResultsGridProps> = ({
               setPageSize(Number(e.target.value));
               setPage(1);
             }}
-            className="bg-studio-bg border border-studio-border rounded px-1.5 py-0.5 text-studio-text text-[11px] focus:outline-none focus:border-studio-accent cursor-pointer"
+            className="bg-background border border-input rounded-md px-1.5 py-0.5 text-foreground text-[11px] focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer"
           >
             <option value={25}>25</option>
             <option value={50}>50</option>
@@ -434,17 +446,17 @@ export const QueryResultsGrid: React.FC<QueryResultsGridProps> = ({
             <button
               disabled={page <= 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="p-1 text-studio-muted hover:text-studio-text disabled:opacity-30 rounded hover:bg-white/5 transition-colors cursor-pointer"
+              className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30 rounded hover:bg-accent transition-colors cursor-pointer"
             >
               <ChevronLeft className="w-3.5 h-3.5" />
             </button>
-            <span className="font-mono text-studio-text px-1">
+            <span className="font-mono text-foreground px-1">
               Page {page} of {totalPages}
             </span>
             <button
               disabled={page >= totalPages}
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              className="p-1 text-studio-muted hover:text-studio-text disabled:opacity-30 rounded hover:bg-white/5 transition-colors cursor-pointer"
+              className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30 rounded hover:bg-accent transition-colors cursor-pointer"
             >
               <ChevronRight className="w-3.5 h-3.5" />
             </button>

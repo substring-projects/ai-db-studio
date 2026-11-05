@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "test": "node --test test/classifier.test.mjs",
+    "test": "node --test test/*.test.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit"
   },

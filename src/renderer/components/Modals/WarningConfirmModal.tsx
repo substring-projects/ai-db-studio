@@ -34,7 +34,7 @@ export const WarningConfirmModal: React.FC<WarningConfirmModalProps> = ({
               onCancel();
               onClose();
             }}
-            className="p-1.5 text-studio-muted hover:text-studio-text rounded-lg hover:bg-white/5 transition-colors"
+            className="p-1.5 text-studio-muted hover:text-studio-text rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -57,7 +57,7 @@ export const WarningConfirmModal: React.FC<WarningConfirmModalProps> = ({
           {/* SQL Preview */}
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-studio-text">SQL Statement</label>
-            <pre className="p-3 bg-[#0e0f12] text-studio-text rounded-lg border border-studio-border font-mono text-xs overflow-x-auto whitespace-pre-wrap max-h-48 leading-relaxed">
+            <pre className="p-3 bg-studio-editorBg text-studio-text rounded-lg border border-studio-border font-mono text-xs overflow-x-auto whitespace-pre-wrap max-h-48 leading-relaxed">
               {proposal.sql}
             </pre>
           </div>
@@ -74,7 +74,7 @@ export const WarningConfirmModal: React.FC<WarningConfirmModalProps> = ({
               onCancel();
               onClose();
             }}
-            className="px-4 py-2 text-xs font-medium text-studio-muted hover:text-studio-text hover:bg-white/5 rounded-lg transition-colors cursor-pointer"
+            className="px-4 py-2 text-xs font-medium text-studio-muted hover:text-studio-text hover:bg-accent rounded-lg transition-colors cursor-pointer"
           >
             Cancel
           </button>

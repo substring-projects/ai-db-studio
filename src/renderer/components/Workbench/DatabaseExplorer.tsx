@@ -20,6 +20,8 @@ import {
 import { DbTable, TableColumn, FilterRule } from '../../../shared/types';
 import { useStudio } from '../../context/StudioContext';
 import { AdvancedFilterModal } from '../Modals/AdvancedFilterModal';
+import { Button } from '../ui/button';
+import { Badge } from '../ui/badge';
 
 interface DatabaseExplorerProps {
   onSelectTableData: (table: DbTable, rules?: FilterRule[], matchAny?: boolean) => void;
@@ -120,61 +122,68 @@ export const DatabaseExplorer: React.FC<DatabaseExplorerProps> = ({
   const filtered = tables.filter((t) => t.name.toLowerCase().includes(search.toLowerCase()));
 
   return (
-    <div className="w-80 h-full flex flex-col bg-studio-sidebar border-l border-studio-border shrink-0 select-none animate-slide-right">
+    <div className="w-80 h-full flex flex-col bg-studio-sidebar border-l border-border shrink-0 select-none animate-slide-right">
       {/* Explorer Header */}
-      <div className="h-11 px-3.5 flex items-center justify-between border-b border-studio-border bg-studio-surface/40 shrink-0">
-        <div className="flex items-center gap-2 text-xs font-semibold text-studio-text">
-          <Table2 className="w-4 h-4 text-studio-accent" />
+      <div className="h-11 px-3.5 flex items-center justify-between border-b border-border bg-card/40 shrink-0">
+        <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
+          <Table2 className="w-4 h-4 text-primary" />
           <span>Explorer</span>
           {tables.length > 0 && (
-            <span className="px-1.5 py-0.2 rounded text-[10px] bg-studio-bg text-studio-muted font-mono">
+            <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
               {tables.length}
-            </span>
+            </Badge>
           )}
         </div>
         <div className="flex items-center gap-1">
           {isConnected && (
-            <button
+            <Button
               onClick={onCreateTable}
               title="Create New Table"
-              className="p-1.5 text-studio-muted hover:text-studio-accent rounded-md hover:bg-white/5 transition-colors cursor-pointer"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-muted-foreground hover:text-foreground"
             >
               <Plus className="w-3.5 h-3.5" />
-            </button>
+            </Button>
           )}
-          <button
+          <Button
             onClick={loadTables}
             disabled={!isConnected || loading}
             title="Refresh objects"
-            className="p-1.5 text-studio-muted hover:text-studio-text rounded-md hover:bg-white/5 disabled:opacity-40 transition-colors cursor-pointer"
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-muted-foreground hover:text-foreground"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={onClose}
             title="Collapse Explorer"
-            className="p-1.5 text-studio-muted hover:text-studio-text rounded-md hover:bg-white/5 transition-colors cursor-pointer"
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-muted-foreground hover:text-foreground"
           >
             <X className="w-3.5 h-3.5" />
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* Connection Prompt if not connected */}
       {!isConnected && (
         <div className="p-5 flex flex-col items-center justify-center text-center gap-3 text-xs flex-1">
-          <p className="text-studio-muted leading-relaxed">
+          <p className="text-muted-foreground leading-relaxed">
             {activeProfile
               ? `Profile “${activeProfile.name}” is disconnected.`
               : 'Choose a profile to browse database objects.'}
           </p>
           {activeProfile && (
-            <button
+            <Button
               onClick={() => connectProfile(activeProfile)}
-              className="px-4 py-1.5 text-xs font-semibold text-studio-sidebar bg-studio-accent hover:bg-studio-accentHover rounded-lg transition-all shadow-sm cursor-pointer"
+              variant="accent"
+              className="text-xs"
             >
               Connect
-            </button>
+            </Button>
           )}
         </div>
       )}
@@ -183,15 +192,15 @@ export const DatabaseExplorer: React.FC<DatabaseExplorerProps> = ({
       {isConnected && (
         <div className="flex-1 flex flex-col min-h-0">
           {/* Search Bar */}
-          <div className="p-2.5 border-b border-studio-border">
+          <div className="p-2.5 border-b border-border">
             <div className="relative flex items-center">
-              <Search className="w-3.5 h-3.5 text-studio-muted absolute left-2.5 pointer-events-none" />
+              <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 pointer-events-none" />
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search tables & views…"
-                className="w-full pl-8 pr-3 py-1.5 text-xs bg-studio-surface border border-studio-border rounded-lg text-studio-text placeholder-studio-muted focus:outline-none focus:border-studio-accent"
+                className="w-full pl-8 pr-3 py-1.5 text-xs bg-background border border-input rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               />
             </div>
           </div>
@@ -199,9 +208,9 @@ export const DatabaseExplorer: React.FC<DatabaseExplorerProps> = ({
           {/* Table List */}
           <div className="flex-1 overflow-y-auto p-1.5 space-y-0.5">
             {loading && tables.length === 0 ? (
-              <div className="p-6 text-center text-xs text-studio-muted">Loading objects…</div>
+              <div className="p-6 text-center text-xs text-muted-foreground">Loading objects…</div>
             ) : filtered.length === 0 ? (
-              <div className="p-6 text-center text-xs text-studio-muted">No tables found.</div>
+              <div className="p-6 text-center text-xs text-muted-foreground">No tables found.</div>
             ) : (
               filtered.map((table) => {
                 const isExpanded = expandedTable === table.name;
@@ -214,7 +223,7 @@ export const DatabaseExplorer: React.FC<DatabaseExplorerProps> = ({
                     <div
                       onContextMenu={(e) => handleContextMenu(e, table)}
                       className={`group flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs cursor-pointer transition-colors ${
-                        isExpanded ? 'bg-studio-surface text-studio-text font-semibold' : 'hover:bg-white/5 text-studio-muted hover:text-studio-text'
+                        isExpanded ? 'bg-accent text-accent-foreground font-semibold' : 'hover:bg-accent/60 text-muted-foreground hover:text-foreground'
                       }`}
                     >
                       <div
@@ -222,42 +231,42 @@ export const DatabaseExplorer: React.FC<DatabaseExplorerProps> = ({
                         className="flex items-center gap-2 flex-1 min-w-0"
                       >
                         {isExpanded ? (
-                          <ChevronDown className="w-3.5 h-3.5 text-studio-accent shrink-0" />
+                          <ChevronDown className="w-3.5 h-3.5 text-primary shrink-0" />
                         ) : (
-                          <ChevronRight className="w-3.5 h-3.5 text-studio-muted shrink-0" />
+                          <ChevronRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                         )}
                         {table.type === 'VIEW' ? (
                           <Eye className="w-3.5 h-3.5 text-purple-400 shrink-0" />
                         ) : (
-                          <Table2 className="w-3.5 h-3.5 text-studio-accent shrink-0" />
+                          <Table2 className="w-3.5 h-3.5 text-primary shrink-0" />
                         )}
                         <span className="truncate">{table.name}</span>
                       </div>
 
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         {activeFilter && activeFilter.rules.length > 0 && (
-                          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-blue-500/15 text-blue-400">
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-blue-500/15 text-blue-500">
                             F({activeFilter.rules.length})
                           </span>
                         )}
                         <button
                           onClick={() => onSelectTableData(table, activeFilter?.rules, activeFilter?.matchAny)}
                           title="View Data (Top 100)"
-                          className="p-1 hover:text-studio-accent rounded hover:bg-white/10"
+                          className="p-1 hover:text-primary rounded hover:bg-muted"
                         >
                           <Play className="w-3 h-3" />
                         </button>
                         <button
                           onClick={() => onInspectStructure(table)}
                           title="Inspect Structure"
-                          className="p-1 hover:text-studio-accent rounded hover:bg-white/10"
+                          className="p-1 hover:text-primary rounded hover:bg-muted"
                         >
-                          <Info className="w-3 h-3 text-cyan-400" />
+                          <Info className="w-3 h-3 text-cyan-500" />
                         </button>
                         <button
                           onClick={() => setFilterModalTable(table)}
                           title="Advanced Filter"
-                          className="p-1 hover:text-studio-accent rounded hover:bg-white/10"
+                          className="p-1 hover:text-primary rounded hover:bg-muted"
                         >
                           <SlidersHorizontal className="w-3 h-3" />
                         </button>
@@ -266,22 +275,22 @@ export const DatabaseExplorer: React.FC<DatabaseExplorerProps> = ({
 
                     {/* Columns expanded list */}
                     {isExpanded && (
-                      <div className="pl-7 pr-2 py-1 space-y-0.5 border-l border-studio-border/50 ml-4 my-0.5">
+                      <div className="pl-7 pr-2 py-1 space-y-0.5 border-l border-border/60 ml-4 my-0.5">
                         {!columns ? (
-                          <div className="text-[11px] text-studio-muted py-1">Loading columns…</div>
+                          <div className="text-[11px] text-muted-foreground py-1">Loading columns…</div>
                         ) : (
                           columns.map((col) => (
                             <div
                               key={col.name}
-                              className="flex items-center justify-between py-1 text-[11px] text-studio-muted font-mono"
+                              className="flex items-center justify-between py-1 text-[11px] text-muted-foreground font-mono"
                             >
                               <div className="flex items-center gap-1.5 truncate">
-                                {col.primaryKey && <Key className="w-2.5 h-2.5 text-amber-400 shrink-0" />}
-                                <span className={col.primaryKey ? 'text-studio-text font-semibold' : ''}>
+                                {col.primaryKey && <Key className="w-2.5 h-2.5 text-amber-500 shrink-0" />}
+                                <span className={col.primaryKey ? 'text-foreground font-semibold' : ''}>
                                   {col.name}
                                 </span>
                               </div>
-                              <span className="text-[10px] text-studio-muted/70 shrink-0 pl-2">
+                              <span className="text-[10px] text-muted-foreground/70 shrink-0 pl-2">
                                 {col.typeName}
                               </span>
                             </div>
@@ -301,7 +310,7 @@ export const DatabaseExplorer: React.FC<DatabaseExplorerProps> = ({
       {contextMenu && (
         <div
           style={{ top: contextMenu.y, left: contextMenu.x }}
-          className="fixed z-50 w-56 py-1.5 bg-studio-surface border border-studio-border rounded-xl shadow-2xl text-xs select-none animate-pop-in"
+          className="fixed z-50 w-56 py-1.5 bg-popover text-popover-foreground border border-border rounded-xl shadow-2xl text-xs select-none animate-pop-in"
         >
           <button
             onClick={() => {
@@ -309,9 +318,9 @@ export const DatabaseExplorer: React.FC<DatabaseExplorerProps> = ({
               onSelectTableData(contextMenu.table, activeFilter?.rules, activeFilter?.matchAny);
               setContextMenu(null);
             }}
-            className="w-full flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/5 text-studio-text text-left cursor-pointer"
+            className="w-full flex items-center gap-2.5 px-3 py-1.5 hover:bg-accent hover:text-accent-foreground text-left cursor-pointer"
           >
-            <Play className="w-3.5 h-3.5 text-emerald-400" />
+            <Play className="w-3.5 h-3.5 text-emerald-500" />
             <span>View Data (Top 100)</span>
           </button>
 
@@ -320,9 +329,9 @@ export const DatabaseExplorer: React.FC<DatabaseExplorerProps> = ({
               onQueryTable(contextMenu.table);
               setContextMenu(null);
             }}
-            className="w-full flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/5 text-studio-text text-left cursor-pointer"
+            className="w-full flex items-center gap-2.5 px-3 py-1.5 hover:bg-accent hover:text-accent-foreground text-left cursor-pointer"
           >
-            <Table2 className="w-3.5 h-3.5 text-studio-accent" />
+            <Table2 className="w-3.5 h-3.5 text-primary" />
             <span>Query in SQL Draft</span>
           </button>
 
@@ -331,9 +340,9 @@ export const DatabaseExplorer: React.FC<DatabaseExplorerProps> = ({
               onInspectStructure(contextMenu.table);
               setContextMenu(null);
             }}
-            className="w-full flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/5 text-studio-text text-left cursor-pointer"
+            className="w-full flex items-center gap-2.5 px-3 py-1.5 hover:bg-accent hover:text-accent-foreground text-left cursor-pointer"
           >
-            <Info className="w-3.5 h-3.5 text-cyan-400" />
+            <Info className="w-3.5 h-3.5 text-cyan-500" />
             <span>Inspect Structure & DDL…</span>
           </button>
 
@@ -342,13 +351,13 @@ export const DatabaseExplorer: React.FC<DatabaseExplorerProps> = ({
               setFilterModalTable(contextMenu.table);
               setContextMenu(null);
             }}
-            className="w-full flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/5 text-studio-text text-left cursor-pointer"
+            className="w-full flex items-center gap-2.5 px-3 py-1.5 hover:bg-accent hover:text-accent-foreground text-left cursor-pointer"
           >
-            <Sliders className="w-3.5 h-3.5 text-blue-400" />
+            <Sliders className="w-3.5 h-3.5 text-blue-500" />
             <span>Advanced Filters…</span>
           </button>
 
-          <div className="h-px bg-studio-border my-1" />
+          <div className="h-px bg-border my-1" />
 
           <button
             onClick={() => {
@@ -356,22 +365,22 @@ export const DatabaseExplorer: React.FC<DatabaseExplorerProps> = ({
               showToast(`Copied "${contextMenu.table.name}"`, 'info');
               setContextMenu(null);
             }}
-            className="w-full flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/5 text-studio-text text-left cursor-pointer"
+            className="w-full flex items-center gap-2.5 px-3 py-1.5 hover:bg-accent hover:text-accent-foreground text-left cursor-pointer"
           >
-            <Copy className="w-3.5 h-3.5 text-studio-muted" />
+            <Copy className="w-3.5 h-3.5 text-muted-foreground" />
             <span>Copy Table Name</span>
           </button>
 
-          <div className="h-px bg-studio-border my-1" />
+          <div className="h-px bg-border my-1" />
 
           <button
             onClick={() => {
               onTruncateTable(contextMenu.table);
               setContextMenu(null);
             }}
-            className="w-full flex items-center gap-2.5 px-3 py-1.5 hover:bg-amber-500/10 text-amber-400 text-left cursor-pointer"
+            className="w-full flex items-center gap-2.5 px-3 py-1.5 hover:bg-amber-500/10 text-amber-600 dark:text-amber-400 text-left cursor-pointer"
           >
-            <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+            <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
             <span>Truncate Table…</span>
           </button>
 
@@ -380,9 +389,9 @@ export const DatabaseExplorer: React.FC<DatabaseExplorerProps> = ({
               onDropTable(contextMenu.table);
               setContextMenu(null);
             }}
-            className="w-full flex items-center gap-2.5 px-3 py-1.5 hover:bg-red-500/10 text-red-400 text-left cursor-pointer"
+            className="w-full flex items-center gap-2.5 px-3 py-1.5 hover:bg-destructive/10 text-destructive text-left cursor-pointer"
           >
-            <Trash2 className="w-3.5 h-3.5 text-red-400" />
+            <Trash2 className="w-3.5 h-3.5 text-destructive" />
             <span>Drop Table…</span>
           </button>
         </div>

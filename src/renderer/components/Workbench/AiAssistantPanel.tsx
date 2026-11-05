@@ -88,7 +88,7 @@ export const AiAssistantPanel: React.FC<AiAssistantPanelProps> = ({
 
               {response.sql && (
                 <div className="space-y-2 pt-2 border-t border-studio-border">
-                  <pre className="p-3 bg-[#0a0a0c] text-studio-text rounded-lg border border-studio-border font-mono text-[11px] overflow-x-auto leading-relaxed">
+                  <pre className="p-3 bg-studio-editorBg text-studio-text rounded-lg border border-studio-border font-mono text-[11px] overflow-x-auto leading-relaxed">
                     {response.sql}
                   </pre>
 

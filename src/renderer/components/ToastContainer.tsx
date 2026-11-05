@@ -22,7 +22,7 @@ export const ToastContainer: React.FC = () => {
             <span className="flex-1 truncate text-studio-text">{toast.message}</span>
             <button
               onClick={() => removeToast(toast.id)}
-              className="p-1 hover:bg-white/10 rounded-full transition-colors cursor-pointer"
+              className="p-1 hover:bg-accent rounded-full transition-colors cursor-pointer"
             >
               <X className="w-3.5 h-3.5 opacity-60 hover:opacity-100" />
             </button>

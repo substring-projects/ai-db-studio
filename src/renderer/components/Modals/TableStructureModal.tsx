@@ -202,7 +202,7 @@ export const TableStructureModal: React.FC<TableStructureModalProps> = ({ struct
                   <span>{copied ? 'Copied' : 'Copy DDL'}</span>
                 </button>
               </div>
-              <pre className="p-4 bg-[#0e0f12] text-studio-text rounded-lg border border-studio-border font-mono text-xs overflow-x-auto leading-relaxed">
+              <pre className="p-4 bg-studio-editorBg text-studio-text rounded-lg border border-studio-border font-mono text-xs overflow-x-auto leading-relaxed">
                 {structure.ddl}
               </pre>
             </div>

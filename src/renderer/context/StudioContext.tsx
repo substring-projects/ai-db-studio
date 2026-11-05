@@ -150,16 +150,23 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
+  const applyTheme = (t: 'dark' | 'light') => {
+    if (t === 'light') {
+      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.add('light');
+    } else {
+      document.documentElement.classList.remove('light');
+      document.documentElement.classList.add('dark');
+    }
+  };
+
   const refreshSettings = async () => {
     try {
       const s = await window.electronAPI.getSettings();
       setSettings(s);
-      setTheme(s.theme || 'dark');
-      if (s.theme === 'light') {
-        document.documentElement.classList.add('light');
-      } else {
-        document.documentElement.classList.remove('light');
-      }
+      const activeTheme = s.theme || 'dark';
+      setTheme(activeTheme);
+      applyTheme(activeTheme);
     } catch (e) {
       console.error(e);
     }
@@ -284,12 +291,8 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const toggleTheme = () => {
     const next = theme === 'dark' ? 'light' : 'dark';
     setTheme(next);
+    applyTheme(next);
     updateSettings({ theme: next });
-    if (next === 'light') {
-      document.documentElement.classList.add('light');
-    } else {
-      document.documentElement.classList.remove('light');
-    }
   };
 
   const closeModals = () => {

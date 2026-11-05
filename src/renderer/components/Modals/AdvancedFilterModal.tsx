@@ -88,7 +88,7 @@ export const AdvancedFilterModal: React.FC<AdvancedFilterModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-studio-muted hover:text-studio-text rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+            className="p-1.5 text-studio-muted hover:text-studio-text rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -162,7 +162,7 @@ export const AdvancedFilterModal: React.FC<AdvancedFilterModalProps> = ({
 
                   <button
                     onClick={() => removeRow(idx)}
-                    className="p-2 text-studio-muted hover:text-red-400 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                    className="p-2 text-studio-muted hover:text-destructive rounded-lg hover:bg-destructive/10 transition-colors cursor-pointer"
                     title="Remove rule"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -185,7 +185,7 @@ export const AdvancedFilterModal: React.FC<AdvancedFilterModalProps> = ({
         <div className="flex items-center justify-between px-6 py-4 bg-studio-bg border-t border-studio-border">
           <button
             onClick={handleClear}
-            className="px-3 py-1.5 text-xs font-medium text-studio-muted hover:text-studio-text hover:bg-white/5 rounded-lg transition-colors cursor-pointer"
+            className="px-3 py-1.5 text-xs font-medium text-studio-muted hover:text-studio-text hover:bg-accent rounded-lg transition-colors cursor-pointer"
           >
             Clear Filters
           </button>
@@ -193,13 +193,13 @@ export const AdvancedFilterModal: React.FC<AdvancedFilterModalProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={onClose}
-              className="px-3.5 py-1.5 text-xs font-medium text-studio-muted hover:text-studio-text rounded-lg transition-colors cursor-pointer"
+              className="px-3.5 py-1.5 text-xs font-medium text-studio-muted hover:text-studio-text hover:bg-accent rounded-lg transition-colors cursor-pointer"
             >
               Cancel
             </button>
             <button
               onClick={handleApply}
-              className="px-4 py-1.5 text-xs font-semibold text-studio-sidebar bg-studio-accent hover:bg-studio-accentHover rounded-lg transition-all shadow-sm cursor-pointer"
+              className="px-4 py-1.5 text-xs font-semibold text-white bg-studio-accent hover:bg-studio-accentHover rounded-lg transition-all shadow-sm cursor-pointer"
             >
               Apply Filters
             </button>

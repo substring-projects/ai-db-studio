@@ -346,7 +346,7 @@ export const Workbench: React.FC = () => {
       {/* Main Workspace (Editor + Results Grid) */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Tab Bar */}
-        <div className="h-10 px-2 flex items-center gap-1 border-b border-studio-border bg-studio-surface/40 overflow-x-auto shrink-0 select-none">
+        <div className="h-10 px-2 flex items-center gap-1 border-b border-border bg-card/40 overflow-x-auto shrink-0 select-none">
           {openDraftIds.map((dId) => {
             const draft = drafts.find((d) => d.id === dId);
             if (!draft) return null;
@@ -363,18 +363,18 @@ export const Workbench: React.FC = () => {
                 }}
                 className={`group flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs cursor-pointer border transition-all ${
                   isActive
-                    ? 'bg-studio-surface text-studio-text border-studio-border shadow-xs font-medium'
-                    : 'text-studio-muted hover:text-studio-text hover:bg-white/5 border-transparent'
+                    ? 'bg-card text-foreground border-border shadow-2xs font-medium'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-accent/70 border-transparent'
                 }`}
               >
-                <FileCode className={`w-3.5 h-3.5 ${isActive ? 'text-studio-accent' : 'text-studio-muted'}`} />
+                <FileCode className={`w-3.5 h-3.5 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
                 <span className="truncate max-w-[120px]">{draft.title}</span>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     closeDraft(dId);
                   }}
-                  className="p-0.5 rounded hover:bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                  className="p-0.5 rounded hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                 >
                   <X className="w-3 h-3" />
                 </button>
@@ -385,36 +385,36 @@ export const Workbench: React.FC = () => {
           <button
             onClick={() => createNewDraft()}
             title="New SQL Draft"
-            className="p-1.5 text-studio-muted hover:text-studio-text hover:bg-white/5 rounded-lg transition-colors cursor-pointer ml-1"
+            className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors cursor-pointer ml-1"
           >
             <Plus className="w-3.5 h-3.5" />
           </button>
         </div>
 
         {/* Execution Toolbar */}
-        <div className="h-11 px-4 flex items-center justify-between border-b border-studio-border bg-studio-bg shrink-0 select-none">
+        <div className="h-11 px-4 flex items-center justify-between border-b border-border bg-background shrink-0 select-none">
           <div className="flex items-center gap-2.5">
             <button
               onClick={() => execute()}
               disabled={running}
-              className="px-3.5 py-1.5 text-xs font-semibold text-studio-sidebar bg-studio-accent hover:bg-studio-accentHover active:scale-95 disabled:opacity-50 rounded-lg flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+              className="px-3.5 py-1.5 text-xs font-semibold text-white bg-studio-accent hover:bg-studio-accentHover active:scale-95 disabled:opacity-50 rounded-lg flex items-center gap-1.5 shadow-sm shadow-primary/20 transition-all cursor-pointer"
             >
               {running ? (
-                <div className="w-3.5 h-3.5 border-2 border-studio-sidebar border-t-transparent rounded-full animate-spin" />
+                <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
                 <Play className="w-3.5 h-3.5 fill-current" />
               )}
               <span>Run Query</span>
-              <span className="text-[10px] opacity-75 font-mono ml-0.5">⌘↵</span>
+              <span className="text-[10px] opacity-80 font-mono ml-0.5">⌘↵</span>
             </button>
 
             <button
               onClick={explain}
               disabled={running}
               title="Explain Query Execution Plan"
-              className="px-3 py-1.5 text-xs font-medium text-studio-muted hover:text-studio-text hover:bg-white/5 border border-studio-border rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent border border-border rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
             >
-              <Binary className="w-3.5 h-3.5 text-cyan-400" />
+              <Binary className="w-3.5 h-3.5 text-cyan-500" />
               <span>Explain</span>
             </button>
 
@@ -425,7 +425,7 @@ export const Workbench: React.FC = () => {
                   e.stopPropagation();
                   setShowHistory(!showHistory);
                 }}
-                className="px-2.5 py-1.5 text-xs font-medium text-studio-muted hover:text-studio-text hover:bg-white/5 border border-studio-border rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+                className="px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent border border-border rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
               >
                 <Clock className="w-3.5 h-3.5" />
                 <span>History</span>
@@ -435,22 +435,22 @@ export const Workbench: React.FC = () => {
               {showHistory && (
                 <div
                   onClick={(e) => e.stopPropagation()}
-                  className="absolute left-0 top-10 w-96 max-h-72 overflow-y-auto bg-studio-surface border border-studio-border rounded-xl shadow-2xl z-30 p-1.5 text-xs select-none animate-pop-in"
+                  className="absolute left-0 top-10 w-96 max-h-72 overflow-y-auto bg-popover text-popover-foreground border border-border rounded-xl shadow-2xl z-30 p-1.5 text-xs select-none animate-pop-in"
                 >
-                  <div className="px-3 py-2 text-[11px] font-semibold text-studio-muted border-b border-studio-border flex justify-between">
+                  <div className="px-3 py-2 text-[11px] font-semibold text-muted-foreground border-b border-border flex justify-between">
                     <span>Recent Executions</span>
                     <button
                       onClick={() => {
                         window.electronAPI.clearHistory();
                         setHistoryList([]);
                       }}
-                      className="text-red-400 hover:underline cursor-pointer"
+                      className="text-destructive hover:underline cursor-pointer"
                     >
                       Clear
                     </button>
                   </div>
                   {historyList.length === 0 ? (
-                    <div className="p-4 text-center text-studio-muted italic">No query history yet.</div>
+                    <div className="p-4 text-center text-muted-foreground italic">No query history yet.</div>
                   ) : (
                     historyList.map((item) => (
                       <div
@@ -460,10 +460,10 @@ export const Workbench: React.FC = () => {
                           setShowHistory(false);
                           showToast('Restored query from history', 'info');
                         }}
-                        className="p-2 hover:bg-white/5 rounded-lg cursor-pointer transition-colors"
+                        className="p-2 hover:bg-accent hover:text-accent-foreground rounded-lg cursor-pointer transition-colors"
                       >
-                        <div className="font-mono text-studio-text truncate">{item.sql}</div>
-                        <div className="text-[10px] text-studio-muted flex gap-3 mt-1">
+                        <div className="font-mono text-foreground truncate">{item.sql}</div>
+                        <div className="text-[10px] text-muted-foreground flex gap-3 mt-1">
                           <span>{item.connectionName}</span>
                           <span>{item.durationMs}ms</span>
                           <span>{item.rowCount} rows</span>
@@ -483,11 +483,11 @@ export const Workbench: React.FC = () => {
               title={aiPanelVisible ? 'Hide AI SQL Copilot' : 'Open AI SQL Copilot'}
               className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-all cursor-pointer ${
                 aiPanelVisible
-                  ? 'bg-purple-500/15 text-purple-300 border-purple-500/30'
-                  : 'text-studio-muted hover:text-studio-text hover:bg-white/5 border-studio-border'
+                  ? 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/30'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-accent border-border'
               }`}
             >
-              <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+              <Sparkles className="w-3.5 h-3.5 text-purple-500" />
               <span>AI Copilot</span>
             </button>
 
@@ -495,12 +495,12 @@ export const Workbench: React.FC = () => {
             <button
               onClick={() => setExplorerVisible(!explorerVisible)}
               title={explorerVisible ? 'Hide Database Explorer' : 'Show Database Explorer'}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-studio-muted hover:text-studio-text hover:bg-white/5 border border-studio-border rounded-lg transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent border border-border rounded-lg transition-colors cursor-pointer"
             >
               {explorerVisible ? (
                 <PanelRightClose className="w-3.5 h-3.5" />
               ) : (
-                <PanelRightOpen className="w-3.5 h-3.5 text-studio-accent" />
+                <PanelRightOpen className="w-3.5 h-3.5 text-primary" />
               )}
               <span>Explorer</span>
             </button>
@@ -575,7 +575,7 @@ export const Workbench: React.FC = () => {
       {tabContextMenu && (
         <div
           style={{ top: tabContextMenu.y, left: tabContextMenu.x }}
-          className="fixed z-50 w-52 py-1.5 bg-studio-surface border border-studio-border rounded-xl shadow-2xl text-xs select-none animate-pop-in"
+          className="fixed z-50 w-52 py-1.5 bg-popover text-popover-foreground border border-border rounded-xl shadow-2xl text-xs select-none animate-pop-in"
         >
           <button
             onClick={() => {
@@ -597,7 +597,7 @@ export const Workbench: React.FC = () => {
               }
               setTabContextMenu(null);
             }}
-            className="w-full flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/5 text-studio-text text-left cursor-pointer"
+            className="w-full flex items-center gap-2.5 px-3 py-1.5 hover:bg-accent hover:text-accent-foreground text-left cursor-pointer"
           >
             <Edit2 className="w-3.5 h-3.5 text-purple-400" />
             <span>Rename Draft…</span>
@@ -608,9 +608,9 @@ export const Workbench: React.FC = () => {
               closeDraft(tabContextMenu.draftId);
               setTabContextMenu(null);
             }}
-            className="w-full flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/5 text-studio-text text-left cursor-pointer"
+            className="w-full flex items-center gap-2.5 px-3 py-1.5 hover:bg-accent hover:text-accent-foreground text-left cursor-pointer"
           >
-            <X className="w-3.5 h-3.5 text-studio-muted" />
+            <X className="w-3.5 h-3.5 text-muted-foreground" />
             <span>Close Tab</span>
           </button>
 
@@ -619,9 +619,9 @@ export const Workbench: React.FC = () => {
               closeOtherDrafts(tabContextMenu.draftId);
               setTabContextMenu(null);
             }}
-            className="w-full flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/5 text-studio-text text-left cursor-pointer"
+            className="w-full flex items-center gap-2.5 px-3 py-1.5 hover:bg-accent hover:text-accent-foreground text-left cursor-pointer"
           >
-            <X className="w-3.5 h-3.5 text-studio-muted" />
+            <X className="w-3.5 h-3.5 text-muted-foreground" />
             <span>Close Other Tabs</span>
           </button>
 
@@ -630,9 +630,9 @@ export const Workbench: React.FC = () => {
               closeDraftsToRight(tabContextMenu.draftId);
               setTabContextMenu(null);
             }}
-            className="w-full flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/5 text-studio-text text-left cursor-pointer"
+            className="w-full flex items-center gap-2.5 px-3 py-1.5 hover:bg-accent hover:text-accent-foreground text-left cursor-pointer"
           >
-            <X className="w-3.5 h-3.5 text-studio-muted" />
+            <X className="w-3.5 h-3.5 text-muted-foreground" />
             <span>Close Tabs to the Right</span>
           </button>
 
@@ -641,13 +641,13 @@ export const Workbench: React.FC = () => {
               closeAllDrafts();
               setTabContextMenu(null);
             }}
-            className="w-full flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/5 text-studio-text text-left cursor-pointer"
+            className="w-full flex items-center gap-2.5 px-3 py-1.5 hover:bg-accent hover:text-accent-foreground text-left cursor-pointer"
           >
-            <X className="w-3.5 h-3.5 text-studio-muted" />
+            <X className="w-3.5 h-3.5 text-muted-foreground" />
             <span>Close All Tabs</span>
           </button>
 
-          <div className="h-px bg-studio-border my-1" />
+          <div className="h-px bg-border my-1" />
 
           <button
             onClick={() => {

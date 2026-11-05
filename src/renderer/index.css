@@ -4,23 +4,80 @@
 
 @layer base {
   :root {
-    --bg-primary: #18191c;
-    --bg-surface: #222428;
-    --bg-sidebar: #121315;
-    --border-color: #303237;
-    --text-primary: #ececef;
-    --text-muted: #adb1bb;
-    --accent: #b6acf4;
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 262 83% 58%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 94%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 88%;
+    --input: 240 5.9% 88%;
+    --ring: 262 83% 58%;
+    --radius: 0.5rem;
+
+    /* Studio light theme tokens */
+    --studio-bg: 240 5% 97%;
+    --studio-sidebar: 240 5% 93%;
+    --studio-surface: 0 0% 100%;
+    --studio-border: 240 6% 87%;
+    --studio-text: 240 10% 14%;
+    --studio-muted: 240 5% 44%;
+    --studio-accent: 262 83% 58%;
+    --studio-accent-hover: 262 83% 50%;
+    --studio-editor-bg: 0 0% 99%;
   }
 
-  .light {
-    --bg-primary: #ffffff;
-    --bg-surface: #ffffff;
-    --bg-sidebar: #f6f6f8;
-    --border-color: #dce0ea;
-    --text-primary: #242938;
-    --text-muted: #606a7c;
-    --accent: #6654c9;
+  .dark {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 5.5%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 5.5%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 263 70% 60%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 13.5%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 45%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 4% 17%;
+    --input: 240 4% 17%;
+    --ring: 263 70% 60%;
+    --radius: 0.5rem;
+
+    /* Studio dark theme tokens */
+    --studio-bg: 240 10% 4.5%;
+    --studio-sidebar: 240 10% 3%;
+    --studio-surface: 240 7% 8%;
+    --studio-border: 240 4% 17%;
+    --studio-text: 0 0% 98%;
+    --studio-muted: 240 5% 65%;
+    --studio-accent: 263 70% 60%;
+    --studio-accent-hover: 263 70% 68%;
+    --studio-editor-bg: 240 10% 3.5%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
 
@@ -44,7 +101,7 @@
 @keyframes popIn {
   0% {
     opacity: 0;
-    transform: scale(0.9) translateY(8px);
+    transform: scale(0.95) translateY(4px);
   }
   100% {
     opacity: 1;
@@ -55,7 +112,7 @@
 @keyframes slideDown {
   0% {
     opacity: 0;
-    transform: translateY(-20px);
+    transform: translateY(-12px);
   }
   100% {
     opacity: 1;
@@ -66,7 +123,7 @@
 @keyframes slideUp {
   0% {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(12px);
   }
   100% {
     opacity: 1;
@@ -77,7 +134,7 @@
 @keyframes slideInRight {
   0% {
     opacity: 0;
-    transform: translateX(20px);
+    transform: translateX(12px);
   }
   100% {
     opacity: 1;
@@ -87,46 +144,46 @@
 
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
-  20% { transform: translateX(-6px); }
-  40% { transform: translateX(6px); }
-  60% { transform: translateX(-4px); }
-  80% { transform: translateX(4px); }
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
 }
 
 @keyframes badgeBounce {
   0% {
     opacity: 0;
-    transform: scale(0.5);
+    transform: scale(0.6);
   }
-  60% {
-    opacity: 1;
-    transform: scale(1.15);
+  70% {
+    transform: scale(1.1);
   }
   100% {
+    opacity: 1;
     transform: scale(1);
   }
 }
 
 .animate-pop-in {
-  animation: popIn 0.24s cubic-bezier(0.1, 0.9, 0.2, 1) forwards;
+  animation: popIn 0.16s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .animate-slide-down {
-  animation: slideDown 0.22s ease-out forwards;
+  animation: slideDown 0.16s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .animate-slide-up {
-  animation: slideUp 0.22s ease-out forwards;
+  animation: slideUp 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .animate-slide-right {
-  animation: slideInRight 0.24s ease-out forwards;
+  animation: slideInRight 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .animate-shake {
-  animation: shake 0.3s ease-in-out;
+  animation: shake 0.35s ease-in-out;
 }
 
 .animate-badge-bounce {
-  animation: badgeBounce 0.3s cubic-bezier(0.2, 1.2, 0.3, 1) 0.05s forwards;
+  animation: badgeBounce 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }

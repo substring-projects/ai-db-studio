@@ -100,7 +100,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ profile, onSav
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-studio-muted hover:text-studio-text rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+            className="p-1.5 text-studio-muted hover:text-studio-text rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -248,13 +248,13 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ profile, onSav
               <button
                 type="button"
                 onClick={onClose}
-                className="px-3.5 py-2 text-xs font-medium text-studio-muted hover:text-studio-text rounded-lg transition-colors cursor-pointer"
+                className="px-3.5 py-2 text-xs font-medium text-studio-muted hover:text-studio-text hover:bg-accent rounded-lg transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 text-xs font-semibold text-studio-sidebar bg-studio-accent hover:bg-studio-accentHover rounded-lg transition-all shadow-sm cursor-pointer"
+                className="px-4 py-2 text-xs font-semibold text-white bg-studio-accent hover:bg-studio-accentHover rounded-lg transition-all shadow-sm cursor-pointer"
               >
                 {isEditing ? 'Save Changes' : 'Create Profile'}
               </button>

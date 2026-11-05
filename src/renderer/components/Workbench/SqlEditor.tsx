@@ -121,18 +121,18 @@ export const SqlEditor: React.FC<SqlEditorProps> = ({ value, onChange, onExecute
   };
 
   return (
-    <div className="relative w-full h-full flex flex-col bg-[#0d0e11] border-b border-studio-border">
+    <div className="relative w-full h-full flex flex-col bg-studio-editorBg border-b border-border">
       {/* Editor Body */}
       <div className="flex-1 flex overflow-hidden">
         {/* Line Numbers Gutter */}
         <div
           ref={lineNumbersRef}
-          className="w-11 py-3 bg-[#0a0a0d] border-r border-studio-border select-none overflow-hidden text-right pr-2.5 font-mono text-xs text-studio-muted/40 shrink-0 leading-5"
+          className="w-11 py-3 bg-studio-sidebar/60 border-r border-border select-none overflow-hidden text-right pr-2.5 font-mono text-xs text-muted-foreground/60 shrink-0 leading-5"
         >
           {Array.from({ length: lineCount }).map((_, i) => (
             <div
               key={i + 1}
-              className={`${cursorPos.line === i + 1 ? 'text-studio-accent font-semibold' : ''}`}
+              className={`${cursorPos.line === i + 1 ? 'text-primary font-semibold' : ''}`}
             >
               {i + 1}
             </div>
@@ -155,13 +155,13 @@ export const SqlEditor: React.FC<SqlEditorProps> = ({ value, onChange, onExecute
             onKeyDown={handleKeyDown}
             placeholder="-- Type your SQL statement here (⌘/Ctrl + Enter to run)"
             spellCheck={false}
-            className="w-full h-full py-3 px-4 font-mono text-xs leading-5 text-studio-text bg-transparent resize-none focus:outline-none select-text whitespace-pre tab-size-2"
+            className="w-full h-full py-3 px-4 font-mono text-xs leading-5 text-foreground bg-transparent resize-none focus:outline-none select-text whitespace-pre tab-size-2"
           />
         </div>
       </div>
 
       {/* Editor Footer Status Bar */}
-      <div className="h-6 px-3 flex items-center justify-between border-t border-studio-border bg-studio-surface/30 text-[10px] text-studio-muted shrink-0 font-mono select-none">
+      <div className="h-6 px-3 flex items-center justify-between border-t border-border bg-muted/30 text-[10px] text-muted-foreground shrink-0 font-mono select-none">
         <div className="flex items-center gap-3">
           <span>
             Ln {cursorPos.line}, Col {cursorPos.col}
@@ -173,7 +173,7 @@ export const SqlEditor: React.FC<SqlEditorProps> = ({ value, onChange, onExecute
           <button
             onClick={formatSql}
             title="Format SQL Keywords"
-            className="flex items-center gap-1 hover:text-studio-accent transition-colors cursor-pointer px-1.5 py-0.5 rounded hover:bg-white/5"
+            className="flex items-center gap-1 hover:text-primary transition-colors cursor-pointer px-1.5 py-0.5 rounded hover:bg-accent hover:text-accent-foreground"
           >
             <AlignLeft className="w-3 h-3" />
             <span>Format</span>
