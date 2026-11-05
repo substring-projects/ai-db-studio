@@ -121,12 +121,14 @@ export const AiChatView: React.FC<{
     }
   }, [conversation, activeProfile, setConversationProfile]);
 
-  // A blank docked conversation follows the connection being worked on in the workspace.
+  // A blank docked conversation follows the workspace when its connection changes. It reacts only
+  // to that change, so a connection picked in the chat itself is not switched straight back.
+  const activeProfileId = activeProfile?.id;
   useEffect(() => {
-    if (docked && conversation && conversation.messages.length === 0 && activeProfile && conversation.profileId !== activeProfile.id) {
-      setConversationProfile(conversation.id, activeProfile.id);
+    if (docked && conversation && conversation.messages.length === 0 && activeProfileId && conversation.profileId !== activeProfileId) {
+      setConversationProfile(conversation.id, activeProfileId);
     }
-  }, [docked, conversation, activeProfile, setConversationProfile]);
+  }, [docked, conversationId, activeProfileId, setConversationProfile]);
 
   useEffect(() => {
     // The panel sits beside the workspace, which decides the active connection.
