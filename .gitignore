@@ -13,4 +13,5 @@ dist/
 dist-electron/
 release/
 .studio-data/
+*.tsbuildinfo
 
