@@ -106,6 +106,7 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  storage.unlockSecrets();
   chatAgent = new ChatAgentService(connections, () => storage.getSettings(), path.join(app.getPath('userData'), 'ai-memory.json'));
   setupIpc();
   setupMenu();
@@ -122,6 +123,7 @@ app.on('window-all-closed', () => {
 
 function setupIpc() {
   // Profiles
+  ipcMain.handle('storage:secure-available', () => storage.isSecureStorageAvailable());
   ipcMain.handle('profiles:get', () => storage.getProfiles());
   ipcMain.handle('profiles:save', (_, p: ConnectionProfile) => storage.saveProfile(p));
   ipcMain.handle('profiles:delete', (_, id: string) => storage.deleteProfile(id));

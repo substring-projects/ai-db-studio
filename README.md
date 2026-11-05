@@ -168,17 +168,19 @@ Everything stays on your computer, in the app's data folder (on macOS, `~/Librar
 
 | File | Contents |
 | :--- | :--- |
-| `studio-storage.json` | Connections, **including passwords**, saved queries, query history and settings, **including the AI API key** |
+| `studio-storage.json` | Connections, saved queries, query history and settings. Passwords and the AI API key are **encrypted with your system's keychain** |
 | `ai-memory.json` | Conversation memory: messages and the SQL that ran, never result rows |
 | Browser storage in the app | Layout, open tabs and the conversations shown in the chat, without result rows |
 
-**These files aren't encrypted.** See below.
+Apart from passwords and the API key, these files aren't encrypted, so saved queries, history and conversations are readable by anyone with access to your user account. The two JSON files are readable only by your user.
+
+If your system has no secure storage, such as Linux without a keyring, passwords aren't saved at all and you'll enter them again after quitting. On macOS, the system may ask for permission to use the keychain the first time.
 
 ## Known limitations
 
 AI DB Studio is pre-release software. Before using it with production databases, please note:
 
-- **Passwords and API keys are stored in plain text** in `studio-storage.json`.
+- **Saved queries, history and conversations aren't encrypted.** Queries you save can contain sensitive values.
 - **TLS certificates aren't verified.** Traffic is encrypted, but the app doesn't confirm the server's identity, so it wouldn't detect a man-in-the-middle attack on an untrusted network.
 - **Row limits:** results keep the first 100,000 rows for your queries and 5,000 for AI queries. The limit applies after the database returns them, so a very large query still uses a lot of memory.
 - **Export** on a table tab covers the current page only.

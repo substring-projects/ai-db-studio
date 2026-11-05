@@ -179,6 +179,9 @@ export type AiEvent =
   | { type: 'done' };
 
 export interface ElectronAPI {
+  /** Whether passwords can be encrypted on this system. Without it they last only for the session. */
+  isSecureStorageAvailable: () => Promise<boolean>;
+
   // Profiles
   getProfiles: () => Promise<ConnectionProfile[]>;
   saveProfile: (profile: ConnectionProfile) => Promise<ConnectionProfile>;

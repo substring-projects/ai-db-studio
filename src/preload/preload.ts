@@ -10,6 +10,8 @@ import {
 } from "../shared/types";
 
 contextBridge.exposeInMainWorld("electronAPI", {
+  isSecureStorageAvailable: () => ipcRenderer.invoke("storage:secure-available"),
+
   // Profiles
   getProfiles: () => ipcRenderer.invoke("profiles:get"),
   saveProfile: (p: ConnectionProfile) => ipcRenderer.invoke("profiles:save", p),

@@ -60,7 +60,7 @@ export class ChatMemoryStore {
   private write(): void {
     fs.mkdirSync(path.dirname(this.filePath), { recursive: true });
     const temp = `${this.filePath}.tmp`;
-    fs.writeFileSync(temp, JSON.stringify(this.data), 'utf-8');
+    fs.writeFileSync(temp, JSON.stringify(this.data), { encoding: 'utf-8', mode: 0o600 });
     fs.renameSync(temp, this.filePath);
   }
 

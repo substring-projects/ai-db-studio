@@ -8,7 +8,8 @@ Do not post credentials, database contents, or exploit details in public issues.
 
 ## Current boundaries
 
-- **Local storage is not encrypted.** `studio-storage.json` holds connection profiles with their passwords in plain text, the AI API key, saved SQL and query history. `ai-memory.json` holds conversation text and the SQL that ran. Moving secrets to the OS keychain is required before a stable release.
+- **Secrets are encrypted with the OS keychain** through Electron `safeStorage`. Without secure storage they are kept for the session only and never written in plain text. Values from older versions are encrypted on first launch. The decrypted values are available to the app's interface while it runs, so that connections can be edited.
+- **Other local data is not encrypted.** `studio-storage.json` also holds connection details, saved SQL and query history, and `ai-memory.json` holds conversation text and the SQL that ran. Both files are readable by the owning user only.
 - **TLS certificates are not verified.** With TLS on, traffic is encrypted, but the server's identity is not checked.
 - **Installers are unsigned** development artifacts, not production releases.
 - **No telemetry is sent.** Network calls go only to the databases and the AI endpoint you configure.

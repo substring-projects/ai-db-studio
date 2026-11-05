@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
 import { ConnectionProfile, Engine, TlsMode } from '../../../shared/types';
 import { cleanError } from '../../context/StudioContext';
@@ -70,6 +70,11 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ profile, onSav
   const [testing, setTesting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [secureStorage, setSecureStorage] = useState(true);
+
+  useEffect(() => {
+    window.electronAPI.isSecureStorageAvailable().then(setSecureStorage).catch(() => setSecureStorage(false));
+  }, []);
 
   const changeEngine = (next: Engine) => {
     setEngine(next);
@@ -121,7 +126,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ profile, onSav
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent
         title={isEditing ? `Edit ${profile!.name}` : 'Add connection'}
-        description="Connections are stored on this device."
+        description="Stored on this device. Passwords are encrypted with your system's keychain."
         className="max-w-md"
       >
         <form onSubmit={save} className="flex min-h-0 flex-1 flex-col">
@@ -174,6 +179,11 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ profile, onSav
               </Field>
               <Field label="Password" htmlFor="conn-password">
                 <Input id="conn-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+                {!secureStorage && (
+                  <p className="text-2xs leading-[14px] text-warning">
+                    This system has no secure storage, so the password won't be saved after you quit.
+                  </p>
+                )}
               </Field>
             </div>
             <Field label="TLS">
