@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-green.svg?style=flat-square" alt="License: Apache 2.0" /></a>
-  <img src="https://img.shields.io/badge/version-0.2.0-blue.svg?style=flat-square" alt="Version 0.2.0" />
+  <img src="https://img.shields.io/badge/version-0.2.1-blue.svg?style=flat-square" alt="Version 0.2.1" />
   <img src="https://img.shields.io/badge/status-pre--release-orange.svg?style=flat-square" alt="Status: pre-release" />
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows-lightgrey.svg?style=flat-square" alt="Platforms: macOS and Windows" />
 </p>
@@ -62,10 +62,10 @@ Download the installer for your computer:
 
 | Platform | Download |
 | :--- | :--- |
-| **macOS** (any Mac) | [Universal DMG](https://github.com/substring-projects/ai-db-studio/releases/download/v0.2.0/AI.DB.Studio-0.2.0-universal.dmg) (185 MB) |
-| **macOS** (Apple Silicon) | [Apple Silicon DMG](https://github.com/substring-projects/ai-db-studio/releases/download/v0.2.0/AI.DB.Studio-0.2.0-arm64.dmg) (106 MB) |
-| **macOS** (Intel) | [Intel DMG](https://github.com/substring-projects/ai-db-studio/releases/download/v0.2.0/AI.DB.Studio-0.2.0.dmg) (113 MB) |
-| **Windows** (64-bit) | [Installer](https://github.com/substring-projects/ai-db-studio/releases/download/v0.2.0/AI.DB.Studio-Setup-0.2.0-x64.exe) (91 MB) or [portable version](https://github.com/substring-projects/ai-db-studio/releases/download/v0.2.0/AI.DB.Studio.0.2.0.exe) (82 MB) |
+| **macOS** (any Mac) | [Universal DMG](https://github.com/substring-projects/ai-db-studio/releases/download/v0.2.1/AI.DB.Studio-0.2.1-universal.dmg) (185 MB) |
+| **macOS** (Apple Silicon) | [Apple Silicon DMG](https://github.com/substring-projects/ai-db-studio/releases/download/v0.2.1/AI.DB.Studio-0.2.1-arm64.dmg) (106 MB) |
+| **macOS** (Intel) | [Intel DMG](https://github.com/substring-projects/ai-db-studio/releases/download/v0.2.1/AI.DB.Studio-0.2.1.dmg) (113 MB) |
+| **Windows** (64-bit) | [Installer](https://github.com/substring-projects/ai-db-studio/releases/download/v0.2.1/AI.DB.Studio-Setup-0.2.1-x64.exe) (91 MB) or [portable version](https://github.com/substring-projects/ai-db-studio/releases/download/v0.2.1/AI.DB.Studio.0.2.1.exe) (82 MB) |
 
 All versions are on the [Releases page](https://github.com/substring-projects/ai-db-studio/releases).
 
