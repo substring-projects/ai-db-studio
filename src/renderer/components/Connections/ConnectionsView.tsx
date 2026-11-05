@@ -5,6 +5,7 @@ import { ConnectionProfile } from '../../../shared/types';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Card } from '../ui/card';
+import logoImg from '../../assets/logo.png';
 
 export const ConnectionsView: React.FC = () => {
   const {
@@ -74,9 +75,9 @@ export const ConnectionsView: React.FC = () => {
 
         {/* Profiles Grid */}
         {profiles.length === 0 ? (
-          <div className="p-12 text-center border border-dashed border-border rounded-2xl flex flex-col items-center justify-center gap-3 bg-card/40">
-            <div className="w-12 h-12 rounded-2xl bg-muted/60 border border-border flex items-center justify-center text-muted-foreground">
-              <Database className="w-6 h-6" />
+          <div className="p-12 text-center border border-dashed border-border rounded-2xl flex flex-col items-center justify-center gap-3.5 bg-card/40">
+            <div className="w-16 h-16 rounded-2xl bg-card border border-border flex items-center justify-center shadow-md overflow-hidden p-1">
+              <img src={logoImg} alt="AI DB Studio" className="w-full h-full object-cover rounded-xl" />
             </div>
             <div className="space-y-1">
               <h4 className="text-sm font-semibold text-foreground">No Database Profiles</h4>

@@ -4,6 +4,7 @@ import { useStudio } from '../../context/StudioContext';
 import { Button } from '../ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
 import { Input } from '../ui/input';
+import logoImg from '../../assets/logo.png';
 
 export const SettingsView: React.FC = () => {
   const { settings, updateSettings, theme, toggleTheme, showToast } = useStudio();
@@ -29,11 +30,16 @@ export const SettingsView: React.FC = () => {
   return (
     <div className="flex-1 overflow-y-auto p-8 bg-background select-none">
       <div className="max-w-3xl mx-auto space-y-6">
-        <div>
-          <h2 className="text-xl font-bold text-foreground tracking-tight">Settings</h2>
-          <p className="text-xs text-muted-foreground mt-1">
-            Configure AI privacy gateway, model endpoints, and workspace preferences.
-          </p>
+        <div className="flex items-center gap-3.5">
+          <div className="w-11 h-11 rounded-xl bg-card border border-border shadow-xs overflow-hidden flex items-center justify-center p-0.5">
+            <img src={logoImg} alt="AI DB Studio" className="w-full h-full object-cover rounded-lg" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-foreground tracking-tight">Settings</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Configure AI privacy gateway, model endpoints, and workspace preferences.
+            </p>
+          </div>
         </div>
 
         <form onSubmit={handleSave} className="space-y-6">

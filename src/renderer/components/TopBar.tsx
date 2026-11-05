@@ -1,6 +1,7 @@
 import React from 'react';
 import { Database, Circle, ChevronRight } from 'lucide-react';
 import { useStudio } from '../context/StudioContext';
+import logoImg from '../assets/logo.png';
 
 export const TopBar: React.FC = () => {
   const { activeView, activeProfile, connectedProfileIds, profiles, setActiveProfile } = useStudio();
@@ -14,6 +15,9 @@ export const TopBar: React.FC = () => {
     >
       {/* Breadcrumb Title */}
       <div className="flex items-center gap-2 text-xs">
+        <div className="w-5 h-5 rounded-md overflow-hidden bg-card border border-border shrink-0 flex items-center justify-center">
+          <img src={logoImg} alt="AI DB Studio" className="w-full h-full object-cover" />
+        </div>
         <span className="font-semibold tracking-wide text-foreground">
           AI DB Studio
         </span>
