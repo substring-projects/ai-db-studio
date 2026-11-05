@@ -5,13 +5,21 @@ export interface ChatHistoryMessage {
   content: string;
 }
 
+export interface AiRequestOptions {
+  signal?: AbortSignal;
+  onDelta?: (delta: string) => void;
+}
+
 export class AiService {
   public static async ask(
     prompt: string,
     schemaContext: string,
     settings: WorkspaceSettings,
-    history: ChatHistoryMessage[] = []
+    history: ChatHistoryMessage[] = [],
+    options: AiRequestOptions = {}
   ): Promise<{ content: string; sql?: string }> {
+    const { signal, onDelta } = options;
+    const streaming = Boolean(onDelta);
     const systemPrompt = `You are an expert SQL database engineer and data analyst for AI DB Studio.
 Your mission is to understand user questions in natural language and generate clean, optimized, robust SQL queries.
 
@@ -23,6 +31,8 @@ STRICT ACCURACY & PRIVACY GUIDELINES:
 5. ALWAYS enclose the recommended SQL query inside a single fenced \`\`\`sql ... \`\`\` code block.
 6. Keep explanations concise, professional, and directly actionable.
 7. Provide helpful notes on performance, indexes, or potential NULL handling when appropriate.
+8. Generate READ-ONLY SQL only: a single SELECT, WITH, SHOW, DESCRIBE, or EXPLAIN statement. Never generate INSERT, UPDATE, DELETE, DDL, or any other statement that changes data or schema, even if asked; explain instead that this assistant can only read, and that changes must be written by hand in the SQL editor.
+9. Follow the SQL dialect named in the schema below for identifier quoting and functions.
 
 CURRENT DATABASE SCHEMA:
 ${schemaContext || 'No schema metadata provided. Write general SQL and clearly specify placeholder table names.'}`;
@@ -42,6 +52,7 @@ ${schemaContext || 'No schema metadata provided. Write general SQL and clearly s
 
         const res = await fetch(url, {
           method: 'POST',
+          signal,
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${settings.aiApiKey || ''}`,
@@ -50,6 +61,7 @@ ${schemaContext || 'No schema metadata provided. Write general SQL and clearly s
             model,
             messages,
             temperature: 0.2,
+            stream: streaming,
           }),
         });
 
@@ -58,12 +70,22 @@ ${schemaContext || 'No schema metadata provided. Write general SQL and clearly s
           throw new Error(`OpenAI API error (${res.status}): ${errorText}`);
         }
 
-        const data = await res.json();
-        const content = data.choices?.[0]?.message?.content || 'No response generated.';
+        const content = (await this.readBody(
+          res,
+          (line) => {
+            if (!line.startsWith('data:')) return undefined;
+            const payload = line.slice(5).trim();
+            if (!payload || payload === '[DONE]') return undefined;
+            return JSON.parse(payload).choices?.[0]?.delta?.content;
+          },
+          (data) => data.choices?.[0]?.message?.content,
+          onDelta
+        )) || 'No response generated.';
         const sql = this.extractSql(content);
 
         return { content, sql };
       } catch (err: any) {
+        if (signal?.aborted) throw err;
         // If API fails and user asked a natural language query, fallback to schema-grounded heuristic if applicable
         const fallback = this.heuristicSql(prompt, schemaContext);
         if (fallback) {
@@ -90,18 +112,23 @@ ${schemaContext || 'No schema metadata provided. Write general SQL and clearly s
 
         const chatRes = await fetch(chatUrl, {
           method: 'POST',
+          signal,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             model,
             messages: chatMessages,
-            stream: false,
+            stream: streaming,
             options: { temperature: 0.2 },
           }),
         });
 
         if (chatRes.ok) {
-          const chatData = await chatRes.json();
-          const content = chatData.message?.content || 'No response generated.';
+          const content = (await this.readBody(
+            chatRes,
+            (line) => JSON.parse(line).message?.content,
+            (data) => data.message?.content,
+            onDelta
+          )) || 'No response generated.';
           const sql = this.extractSql(content);
           return { content, sql };
         }
@@ -112,6 +139,7 @@ ${schemaContext || 'No schema metadata provided. Write general SQL and clearly s
 
         const genRes = await fetch(genUrl, {
           method: 'POST',
+          signal,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             model,
@@ -132,6 +160,7 @@ ${schemaContext || 'No schema metadata provided. Write general SQL and clearly s
 
         return { content, sql };
       } catch (err: any) {
+        if (signal?.aborted) throw err;
         // If Ollama is not running, provide smart schema-grounded local answer
         const fallback = this.heuristicSql(prompt, schemaContext);
         if (fallback) {
@@ -145,6 +174,53 @@ ${schemaContext || 'No schema metadata provided. Write general SQL and clearly s
         );
       }
     }
+  }
+
+  /**
+   * Reads a model response, streamed line by line when a listener is attached.
+   * An endpoint that ignores the stream flag and answers with one JSON body still works.
+   */
+  private static async readBody(
+    res: Response,
+    parseLine: (line: string) => string | undefined,
+    parseWhole: (data: any) => string | undefined,
+    onDelta?: (delta: string) => void
+  ): Promise<string> {
+    const isJsonBody = (res.headers.get('content-type') || '').includes('application/json');
+    if (!onDelta || !res.body || isJsonBody) {
+      const whole = parseWhole(await res.json()) || '';
+      if (whole && onDelta) onDelta(whole);
+      return whole;
+    }
+
+    let content = '';
+    let buffer = '';
+    const decoder = new TextDecoder();
+    const consume = (line: string) => {
+      if (!line.trim()) return;
+      let delta: string | undefined;
+      try {
+        delta = parseLine(line.trim());
+      } catch {
+        return; // Keep-alive or partial event: not content.
+      }
+      if (delta) {
+        content += delta;
+        onDelta(delta);
+      }
+    };
+
+    const reader = res.body.getReader();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? '';
+      lines.forEach(consume);
+    }
+    consume(buffer);
+    return content;
   }
 
   /**
@@ -179,6 +255,12 @@ ${schemaContext || 'No schema metadata provided. Write general SQL and clearly s
    * Fast offline heuristic query synthesizer grounded in the schema metadata.
    */
   public static heuristicSql(prompt: string, schemaContext: string): string | undefined {
+    const sql = this.synthesizeSql(prompt, schemaContext);
+    // Double quotes are string literals in MySQL, so identifiers need backticks there.
+    return sql && /dialect:\s*mysql/i.test(schemaContext) ? sql.replace(/"/g, '`') : sql;
+  }
+
+  private static synthesizeSql(prompt: string, schemaContext: string): string | undefined {
     const p = prompt.toLowerCase();
 
     // Extract table definitions and known column names from schemaContext

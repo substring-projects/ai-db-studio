@@ -1,60 +1,41 @@
 import React from 'react';
-import { CheckCircle2, AlertTriangle, AlertCircle, Info, X } from 'lucide-react';
-import { useStudio, ToastItem } from '../context/StudioContext';
+import { AlertCircle, AlertTriangle, CheckCircle2, Info, X } from 'lucide-react';
+import { ToastItem, useStudio } from '../context/StudioContext';
+import { cn } from '../lib/utils';
+import { Button } from './ui/button';
+
+const ICONS: Record<ToastItem['type'], { icon: React.ElementType; className: string }> = {
+  success: { icon: CheckCircle2, className: 'text-success' },
+  danger: { icon: AlertTriangle, className: 'text-destructive' },
+  warning: { icon: AlertCircle, className: 'text-warning' },
+  info: { icon: Info, className: 'text-muted-foreground' },
+};
 
 export const ToastContainer: React.FC = () => {
   const { toasts, removeToast } = useStudio();
-
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-2.5 max-w-sm pointer-events-none">
+    <div
+      role="status"
+      aria-live="polite"
+      className="pointer-events-none fixed right-3 top-[76px] z-[70] flex w-80 flex-col items-end gap-1.5"
+    >
       {toasts.map((toast) => {
-        const Icon = getIcon(toast.type);
+        const { icon: Icon, className } = ICONS[toast.type];
         return (
           <div
             key={toast.id}
-            className={`pointer-events-auto flex items-center gap-3 px-4 py-2.5 rounded-full border shadow-xl backdrop-blur-md animate-slide-up text-xs font-semibold ${getStyles(
-              toast.type
-            )}`}
+            className="pointer-events-auto flex max-w-full items-start gap-2 rounded-md border border-border bg-popover py-1.5 pl-2.5 pr-1.5 text-xs text-popover-foreground shadow-overlay animate-menu-in"
           >
-            <Icon className="w-4 h-4 shrink-0" />
-            <span className="flex-1 truncate text-studio-text">{toast.message}</span>
-            <button
-              onClick={() => removeToast(toast.id)}
-              className="p-1 hover:bg-accent rounded-full transition-colors cursor-pointer"
-            >
-              <X className="w-3.5 h-3.5 opacity-60 hover:opacity-100" />
-            </button>
+            <Icon className={cn('mt-px size-3.5 shrink-0', className)} />
+            <span className="selectable min-w-0 break-words leading-4">{toast.message}</span>
+            <Button variant="quiet" size="icon-xs" aria-label="Dismiss" onClick={() => removeToast(toast.id)}>
+              <X />
+            </Button>
           </div>
         );
       })}
     </div>
   );
 };
-
-function getIcon(type: ToastItem['type']) {
-  switch (type) {
-    case 'success':
-      return CheckCircle2;
-    case 'danger':
-      return AlertTriangle;
-    case 'warning':
-      return AlertCircle;
-    default:
-      return Info;
-  }
-}
-
-function getStyles(type: ToastItem['type']): string {
-  switch (type) {
-    case 'success':
-      return 'bg-studio-surface border-emerald-500/40 text-emerald-400 shadow-emerald-950/20';
-    case 'danger':
-      return 'bg-studio-surface border-red-500/40 text-red-400 shadow-red-950/20';
-    case 'warning':
-      return 'bg-studio-surface border-amber-500/40 text-amber-400 shadow-amber-950/20';
-    default:
-      return 'bg-studio-surface border-studio-border text-blue-400 shadow-black/30';
-  }
-}

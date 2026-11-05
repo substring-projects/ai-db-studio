@@ -17,7 +17,10 @@ export interface SqlDraft {
   id: string;
   connectionId?: string | null;
   title: string;
+  /** Working copy, written to disk automatically so nothing is lost. */
   sql: string;
+  /** Baseline from the last explicit save; differing from `sql` marks the tab unsaved. */
+  savedSql?: string;
   updatedAt?: number;
 }
 
@@ -77,6 +80,24 @@ export interface TableStructure {
   indexes: TableIndex[];
   foreignKeys: ForeignKey[];
   ddl: string;
+  constraints?: TableConstraint[];
+  metadata?: TableMetadata;
+}
+
+export interface TableConstraint {
+  name: string;
+  type: string;
+  definition?: string;
+}
+
+export interface TableMetadata {
+  schema?: string;
+  engine?: string;
+  owner?: string;
+  collation?: string;
+  comment?: string;
+  rowEstimate?: number;
+  totalBytes?: number;
 }
 
 export interface DbTable {
@@ -91,6 +112,10 @@ export interface QueryResult {
   rows: (string | number | boolean | null)[][];
   rowCount: number;
   executionTimeMs: number;
+  /** More rows matched than the row cap allows; `rows` holds only the first ones. */
+  truncated?: boolean;
+  /** The statement returned no result set; `rowCount` is the number of affected rows. */
+  isCommand?: boolean;
 }
 
 export interface StatementClassification {
@@ -138,9 +163,9 @@ export interface ElectronAPI {
   connect: (profile: ConnectionProfile, password?: string) => Promise<{ success: boolean; message?: string }>;
   disconnect: (profileId: string) => Promise<void>;
   getTables: (profileId: string) => Promise<DbTable[]>;
-  getColumns: (profileId: string, tableName: string) => Promise<TableColumn[]>;
+  getColumns: (profileId: string, tableName: string, schema?: string) => Promise<TableColumn[]>;
   getAllColumns: (profileId: string) => Promise<Record<string, TableColumn[]>>;
-  getTableStructure: (profileId: string, tableName: string) => Promise<TableStructure>;
+  getTableStructure: (profileId: string, tableName: string, schema?: string) => Promise<TableStructure>;
   getTableData: (
     profileId: string,
     tableName: string,
@@ -149,17 +174,27 @@ export interface ElectronAPI {
     sortCol?: string,
     sortDesc?: boolean,
     rules?: FilterRule[],
-    matchAny?: boolean
+    matchAny?: boolean,
+    schema?: string
   ) => Promise<QueryResult>;
+  getTableCount: (
+    profileId: string,
+    tableName: string,
+    rules?: FilterRule[],
+    matchAny?: boolean,
+    schema?: string
+  ) => Promise<number | null>;
 
   // Queries
   prepareQuery: (profileId: string, sql: string) => Promise<{
     classification: StatementClassification;
     proposal?: MutationProposal;
   }>;
-  executeQuery: (profileId: string, sql: string, approvalToken?: string) => Promise<QueryResult>;
+  executeQuery: (profileId: string, sql: string, approvalToken?: string, runId?: string) => Promise<QueryResult>;
+  /** The only way AI-generated SQL is run: strictly read-only, with no approval path. */
+  executeReadOnlyQuery: (profileId: string, sql: string, runId?: string) => Promise<QueryResult>;
   explainQuery: (profileId: string, sql: string) => Promise<QueryResult>;
-  cancelQuery: (profileId: string) => Promise<void>;
+  cancelQuery: (profileId: string, runId?: string) => Promise<void>;
 
   // Drafts
   getDrafts: () => Promise<SqlDraft[]>;
@@ -180,14 +215,19 @@ export interface ElectronAPI {
     prompt: string,
     schemaContext: string,
     settings: WorkspaceSettings,
-    history?: { role: 'user' | 'assistant'; content: string }[]
+    history?: { role: 'user' | 'assistant'; content: string }[],
+    requestId?: string
   ) => Promise<{ content: string; sql?: string }>;
+  cancelAi: (requestId: string) => Promise<void>;
+  onAiChunk: (listener: (requestId: string, delta: string) => void) => () => void;
 
   // Clipboard
   copyToClipboard: (text: string) => Promise<void>;
 
   // System
   platform: string;
+  setWindowTheme: (theme: 'dark' | 'light') => Promise<void>;
+  onMenuCommand: (listener: (command: string) => void) => () => void;
 }
 
 declare global {

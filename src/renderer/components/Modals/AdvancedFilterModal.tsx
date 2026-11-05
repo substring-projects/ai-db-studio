@@ -1,6 +1,12 @@
 import React, { useState } from 'react';
-import { Sliders, Plus, Trash2, X } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { FilterOperator, FilterRule } from '../../../shared/types';
+import { FILTER_OPERATORS } from '../../lib/grid';
+import { cn } from '../../lib/utils';
+import { Button } from '../ui/button';
+import { Dialog, DialogBody, DialogContent, DialogFooter } from '../ui/dialog';
+import { Input } from '../ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 interface AdvancedFilterModalProps {
   tableName: string;
@@ -11,20 +17,6 @@ interface AdvancedFilterModalProps {
   onClose: () => void;
 }
 
-const OPERATORS: { label: string; value: FilterOperator }[] = [
-  { label: 'contains', value: 'CONTAINS' },
-  { label: 'equals', value: 'EQUALS' },
-  { label: 'not equals', value: 'NOT_EQUALS' },
-  { label: 'starts with', value: 'STARTS_WITH' },
-  { label: 'ends with', value: 'ENDS_WITH' },
-  { label: '>', value: 'GREATER_THAN' },
-  { label: '>=', value: 'GREATER_OR_EQUAL' },
-  { label: '<', value: 'LESS_THAN' },
-  { label: '<=', value: 'LESS_OR_EQUAL' },
-  { label: 'is null', value: 'IS_NULL' },
-  { label: 'is not null', value: 'IS_NOT_NULL' },
-];
-
 export const AdvancedFilterModal: React.FC<AdvancedFilterModalProps> = ({
   tableName,
   columns,
@@ -33,179 +25,114 @@ export const AdvancedFilterModal: React.FC<AdvancedFilterModalProps> = ({
   onApply,
   onClose,
 }) => {
+  const blank = (): FilterRule => ({ column: columns[0] ?? '', operator: 'CONTAINS', value: '' });
   const [matchAny, setMatchAny] = useState(initialMatchAny);
-  const [rules, setRules] = useState<FilterRule[]>(
-    initialRules.length > 0
-      ? initialRules
-      : [{ column: columns[0] || '', operator: 'CONTAINS', value: '' }]
-  );
+  const [rules, setRules] = useState<FilterRule[]>(initialRules.length > 0 ? initialRules : [blank()]);
 
-  const addRow = () => {
-    setRules((prev) => [
-      ...prev,
-      { column: columns[0] || '', operator: 'CONTAINS', value: '' },
-    ]);
+  const update = (index: number, patch: Partial<FilterRule>) => {
+    setRules((prev) => prev.map((r, i) => (i === index ? { ...r, ...patch } : r)));
   };
+  const needsValue = (operator: FilterOperator) => FILTER_OPERATORS.find((o) => o.value === operator)?.needsValue ?? true;
 
-  const removeRow = (index: number) => {
-    setRules((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const updateRule = (index: number, patch: Partial<FilterRule>) => {
-    setRules((prev) =>
-      prev.map((r, i) => (i === index ? { ...r, ...patch } : r))
-    );
-  };
-
-  const handleApply = () => {
-    const valid = rules.filter(
-      (r) =>
-        r.column &&
-        (r.value.trim() !== '' || r.operator === 'IS_NULL' || r.operator === 'IS_NOT_NULL')
-    );
-    onApply(valid, matchAny);
-    onClose();
-  };
-
-  const handleClear = () => {
-    onApply([], false);
+  const apply = () => {
+    onApply(rules.filter((r) => r.column && (!needsValue(r.operator) || r.value.trim() !== '')), matchAny);
     onClose();
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-      <div className="w-full max-w-xl bg-studio-surface border border-studio-border rounded-xl shadow-2xl overflow-hidden animate-slide-up">
-        {/* Header */}
-        <div className="flex items-center gap-4 px-6 py-5 border-b border-studio-border bg-studio-surface/50">
-          <div className="w-11 h-11 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center shrink-0 shadow-sm animate-badge-bounce">
-            <Sliders className="w-5 h-5 text-blue-400" />
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent title="Filter rows" description={tableName} className="max-w-xl">
+        <DialogBody className="space-y-2.5">
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-muted-foreground">Match</span>
+            <div role="radiogroup" aria-label="Match" className="flex rounded-md border border-input p-0.5">
+              {[
+                { any: false, label: 'All conditions' },
+                { any: true, label: 'Any condition' },
+              ].map((option) => (
+                <button
+                  key={option.label}
+                  type="button"
+                  role="radio"
+                  aria-checked={matchAny === option.any}
+                  onClick={() => setMatchAny(option.any)}
+                  className={cn(
+                    'rounded-sm px-2 py-0.5 text-xxs transition-colors duration-75',
+                    matchAny === option.any ? 'bg-secondary font-medium' : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <h3 className="text-base font-semibold text-studio-text leading-tight">Advanced Filters</h3>
-            <p className="text-xs text-studio-muted truncate mt-0.5">
-              Table: <span className="font-mono text-studio-accent">{tableName}</span> · Define multi-condition filter rules
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 text-studio-muted hover:text-studio-text rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="p-6 space-y-4 max-h-[65vh] overflow-y-auto">
-          {/* Match criteria */}
-          <div className="flex items-center gap-6 p-3 bg-studio-bg rounded-lg border border-studio-border text-xs">
-            <span className="text-studio-muted font-medium">Match Criteria:</span>
-            <label className="flex items-center gap-2 cursor-pointer text-studio-text">
-              <input
-                type="radio"
-                name="match"
-                checked={!matchAny}
-                onChange={() => setMatchAny(false)}
-                className="text-studio-accent focus:ring-0"
-              />
-              <span>Match ALL (AND)</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer text-studio-text">
-              <input
-                type="radio"
-                name="match"
-                checked={matchAny}
-                onChange={() => setMatchAny(true)}
-                className="text-studio-accent focus:ring-0"
-              />
-              <span>Match ANY (OR)</span>
-            </label>
-          </div>
-
-          {/* Condition rows */}
-          <div className="space-y-2.5">
-            {rules.map((rule, idx) => {
-              const noValue = rule.operator === 'IS_NULL' || rule.operator === 'IS_NOT_NULL';
-              return (
-                <div key={idx} className="flex items-center gap-2">
-                  <select
-                    value={rule.column}
-                    onChange={(e) => updateRule(idx, { column: e.target.value })}
-                    className="flex-1 px-3 py-2 text-xs bg-studio-bg text-studio-text border border-studio-border rounded-lg focus:outline-none focus:border-studio-accent cursor-pointer"
-                  >
+          <div className="space-y-1.5">
+            {rules.map((rule, index) => (
+              <div key={index} className="grid grid-cols-[minmax(0,1fr)_120px_minmax(0,1fr)_24px] items-center gap-1.5">
+                <Select value={rule.column} onValueChange={(column) => update(index, { column })}>
+                  <SelectTrigger aria-label="Column" className="font-mono text-xxs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
                     {columns.map((c) => (
-                      <option key={c} value={c}>
+                      <SelectItem key={c} value={c} className="font-mono text-xxs">
                         {c}
-                      </option>
+                      </SelectItem>
                     ))}
-                  </select>
-
-                  <select
-                    value={rule.operator}
-                    onChange={(e) => updateRule(idx, { operator: e.target.value as FilterOperator })}
-                    className="w-32 px-3 py-2 text-xs bg-studio-bg text-studio-text border border-studio-border rounded-lg focus:outline-none focus:border-studio-accent cursor-pointer"
-                  >
-                    {OPERATORS.map((op) => (
-                      <option key={op.value} value={op.value}>
+                  </SelectContent>
+                </Select>
+                <Select value={rule.operator} onValueChange={(operator) => update(index, { operator: operator as FilterOperator })}>
+                  <SelectTrigger aria-label="Operator" className="text-xxs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {FILTER_OPERATORS.map((op) => (
+                      <SelectItem key={op.value} value={op.value}>
                         {op.label}
-                      </option>
+                      </SelectItem>
                     ))}
-                  </select>
-
-                  <input
-                    type="text"
-                    disabled={noValue}
-                    value={noValue ? '' : rule.value}
-                    placeholder={noValue ? 'N/A' : 'Value…'}
-                    onChange={(e) => updateRule(idx, { value: e.target.value })}
-                    className="flex-1 px-3 py-2 text-xs bg-studio-bg text-studio-text border border-studio-border rounded-lg focus:outline-none focus:border-studio-accent disabled:opacity-40"
-                  />
-
-                  <button
-                    onClick={() => removeRow(idx)}
-                    className="p-2 text-studio-muted hover:text-destructive rounded-lg hover:bg-destructive/10 transition-colors cursor-pointer"
-                    title="Remove rule"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              );
-            })}
+                  </SelectContent>
+                </Select>
+                <Input
+                  aria-label="Value"
+                  disabled={!needsValue(rule.operator)}
+                  value={needsValue(rule.operator) ? rule.value : ''}
+                  onChange={(e) => update(index, { value: e.target.value })}
+                  className="font-mono text-xxs"
+                />
+                <Button
+                  variant="quiet"
+                  size="icon-sm"
+                  aria-label="Remove condition"
+                  onClick={() => setRules((prev) => prev.filter((_, i) => i !== index))}
+                >
+                  <Trash2 />
+                </Button>
+              </div>
+            ))}
           </div>
-
-          <button
-            onClick={addRow}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-studio-accent hover:text-studio-accentHover border border-dashed border-studio-border hover:border-studio-accent rounded-lg transition-colors cursor-pointer"
+          <Button variant="quiet" size="sm" onClick={() => setRules((prev) => [...prev, blank()])}>
+            <Plus /> Add condition
+          </Button>
+        </DialogBody>
+        <DialogFooter className="justify-between">
+          <Button
+            variant="quiet"
+            onClick={() => {
+              onApply([], false);
+              onClose();
+            }}
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Add Condition</span>
-          </button>
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-between px-6 py-4 bg-studio-bg border-t border-studio-border">
-          <button
-            onClick={handleClear}
-            className="px-3 py-1.5 text-xs font-medium text-studio-muted hover:text-studio-text hover:bg-accent rounded-lg transition-colors cursor-pointer"
-          >
-            Clear Filters
-          </button>
-
+            Clear filters
+          </Button>
           <div className="flex items-center gap-2">
-            <button
-              onClick={onClose}
-              className="px-3.5 py-1.5 text-xs font-medium text-studio-muted hover:text-studio-text hover:bg-accent rounded-lg transition-colors cursor-pointer"
-            >
+            <Button variant="outline" onClick={onClose}>
               Cancel
-            </button>
-            <button
-              onClick={handleApply}
-              className="px-4 py-1.5 text-xs font-semibold text-white bg-studio-accent hover:bg-studio-accentHover rounded-lg transition-all shadow-sm cursor-pointer"
-            >
-              Apply Filters
-            </button>
+            </Button>
+            <Button onClick={apply}>Apply</Button>
           </div>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };

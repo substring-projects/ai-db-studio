@@ -1,11 +1,10 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import {
-  ConnectionProfile,
-  SqlDraft,
-  WorkspaceSettings,
-  MutationProposal,
-  DbTable,
-} from '../../shared/types';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { ConnectionProfile, MutationProposal, SqlDraft, WorkspaceSettings } from '../../shared/types';
+import { createId, prefs } from '../lib/utils';
+import { PromptModal } from '../components/Modals/PromptModal';
+import { DangerConfirmModal } from '../components/Modals/DangerConfirmModal';
+import { WarningConfirmModal } from '../components/Modals/WarningConfirmModal';
+import { ConnectionModal } from '../components/Modals/ConnectionModal';
 
 export interface ToastItem {
   id: string;
@@ -13,16 +12,40 @@ export interface ToastItem {
   type: 'success' | 'danger' | 'warning' | 'info';
 }
 
-interface StudioContextType {
-  // Navigation
-  activeView: 'workbench' | 'connections' | 'settings';
-  setActiveView: (view: 'workbench' | 'connections' | 'settings') => void;
+export type ConnectionState = 'offline' | 'connecting' | 'connected' | 'failed';
 
+interface PromptOptions {
+  title: string;
+  subtitle: string;
+  fieldLabel: string;
+  initialValue?: string;
+  placeholder?: string;
+  validate?: (val: string) => boolean;
+  errorMsg?: string;
+  onConfirm: (val: string) => void;
+}
+
+interface DangerOptions {
+  title: string;
+  subtitle: string;
+  message: string;
+  actionText?: string;
+  onConfirm: () => void;
+}
+
+interface WarningOptions {
+  proposal: MutationProposal;
+  onConfirm: (token: string) => void;
+  onCancel: () => void;
+}
+
+interface StudioContextType {
   // Profiles
   profiles: ConnectionProfile[];
   activeProfile: ConnectionProfile | null;
-  setActiveProfile: (profile: ConnectionProfile | null) => void;
+  setActiveProfileId: (id: string | null) => void;
   connectedProfileIds: string[];
+  connectionStates: Record<string, { state: ConnectionState; error?: string }>;
   refreshProfiles: () => Promise<void>;
   connectProfile: (profile: ConnectionProfile, password?: string) => Promise<boolean>;
   disconnectProfile: (profileId: string) => Promise<void>;
@@ -31,17 +54,11 @@ interface StudioContextType {
 
   // Drafts
   drafts: SqlDraft[];
-  activeDraftId: string | null;
-  setActiveDraftId: (id: string | null) => void;
-  openDraftIds: string[];
-  openDraft: (draft: SqlDraft) => void;
-  closeDraft: (id: string) => void;
-  closeOtherDrafts: (keepId: string) => void;
-  closeAllDrafts: () => void;
-  closeDraftsToRight: (refId: string) => void;
-  saveDraft: (draft: SqlDraft) => Promise<void>;
+  draftsLoaded: boolean;
+  /** Updates a draft immediately in memory and writes it to disk shortly after. */
+  updateDraft: (draft: SqlDraft) => void;
   deleteDraft: (id: string) => Promise<void>;
-  createNewDraft: (sql?: string, title?: string) => void;
+  createDraft: (sql?: string, title?: string, connectionId?: string | null) => Promise<SqlDraft>;
 
   // Settings
   settings: WorkspaceSettings;
@@ -55,314 +72,292 @@ interface StudioContextType {
   removeToast: (id: string) => void;
 
   // Modals
-  openPromptModal: (opts: {
-    title: string;
-    subtitle: string;
-    fieldLabel: string;
-    initialValue?: string;
-    placeholder?: string;
-    validate?: (val: string) => boolean;
-    errorMsg?: string;
-    onConfirm: (val: string) => void;
-  }) => void;
-  openDangerModal: (opts: {
-    title: string;
-    subtitle: string;
-    message: string;
-    actionText?: string;
-    onConfirm: () => void;
-  }) => void;
-  openWarningModal: (opts: {
-    proposal: MutationProposal;
-    onConfirm: (token: string) => void;
-    onCancel: () => void;
-  }) => void;
+  openPromptModal: (opts: PromptOptions) => void;
+  openDangerModal: (opts: DangerOptions) => void;
+  openWarningModal: (opts: WarningOptions) => void;
   openEditProfileModal: (profile?: ConnectionProfile | null) => void;
-  editingProfile: ConnectionProfile | null | undefined;
-  closeModals: () => void;
 }
 
 const StudioContext = createContext<StudioContextType | undefined>(undefined);
 
+const DEFAULT_SETTINGS: WorkspaceSettings = {
+  theme: 'dark',
+  explorerVisible: true,
+  explorerDivider: 0.72,
+  maxHistory: 200,
+  aiProvider: 'ollama',
+  aiEndpoint: 'http://localhost:11434',
+  aiModel: 'codellama',
+};
+
+const DRAFT_SAVE_DELAY_MS = 500;
+const THEME_CACHE_KEY = 'studio:theme';
+
+function applyTheme(theme: 'dark' | 'light') {
+  document.documentElement.classList.toggle('dark', theme === 'dark');
+  document.documentElement.classList.toggle('light', theme === 'light');
+  prefs.set(THEME_CACHE_KEY, theme);
+  window.electronAPI.setWindowTheme?.(theme);
+}
+
+/** Strips Electron's IPC wrapper so people see the database's own message. */
+export function cleanError(err: unknown, fallback = 'Something went wrong'): string {
+  const message = err instanceof Error ? err.message : String(err ?? '');
+  return message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '') || fallback;
+}
+
 export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [activeView, setActiveView] = useState<'workbench' | 'connections' | 'settings'>('workbench');
   const [profiles, setProfiles] = useState<ConnectionProfile[]>([]);
-  const [activeProfile, setActiveProfile] = useState<ConnectionProfile | null>(null);
-  const [connectedProfileIds, setConnectedProfileIds] = useState<string[]>([]);
+  const [activeProfileId, setActiveProfileIdState] = useState<string | null>(() =>
+    prefs.get<string | null>('studio:activeProfile', null)
+  );
+  const [connectionStates, setConnectionStates] = useState<StudioContextType['connectionStates']>({});
 
   const [drafts, setDrafts] = useState<SqlDraft[]>([]);
-  const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
-  const [openDraftIds, setOpenDraftIds] = useState<string[]>([]);
+  const [draftsLoaded, setDraftsLoaded] = useState(false);
+  const pendingDraftSaves = useRef(new Map<string, ReturnType<typeof setTimeout>>());
 
-  const [settings, setSettings] = useState<WorkspaceSettings>({
-    theme: 'dark',
-    explorerVisible: true,
-    explorerDivider: 0.72,
-    maxHistory: 200,
-    aiProvider: 'ollama',
-    aiEndpoint: 'http://localhost:11434',
-    aiModel: 'codellama',
-  });
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
-
+  const [settings, setSettings] = useState<WorkspaceSettings>(DEFAULT_SETTINGS);
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => prefs.get(THEME_CACHE_KEY, 'dark'));
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
-  // Modal states
-  const [promptModal, setPromptModal] = useState<any>(null);
-  const [dangerModal, setDangerModal] = useState<any>(null);
-  const [warningModal, setWarningModal] = useState<any>(null);
+  const [promptModal, setPromptModal] = useState<PromptOptions | null>(null);
+  const [dangerModal, setDangerModal] = useState<DangerOptions | null>(null);
+  const [warningModal, setWarningModal] = useState<WarningOptions | null>(null);
   const [editingProfile, setEditingProfile] = useState<ConnectionProfile | null | undefined>(undefined);
 
-  const showToast = (message: string, type: ToastItem['type'] = 'info') => {
-    const id = Math.random().toString(36).substring(2, 9);
-    setToasts((prev) => [...prev, { id, message, type }]);
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 3000);
-  };
-
-  const removeToast = (id: string) => {
+  const removeToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
-  };
+  }, []);
 
-  const refreshProfiles = async () => {
+  const showToast = useCallback(
+    (message: string, type: ToastItem['type'] = 'info') => {
+      const id = createId('toast');
+      setToasts((prev) => [...prev.slice(-3), { id, message, type }]);
+      setTimeout(() => removeToast(id), type === 'danger' ? 6000 : 3000);
+    },
+    [removeToast]
+  );
+
+  const setActiveProfileId = useCallback((id: string | null) => {
+    setActiveProfileIdState(id);
+    prefs.set('studio:activeProfile', id);
+  }, []);
+
+  const refreshProfiles = useCallback(async () => {
     try {
       const list = await window.electronAPI.getProfiles();
       setProfiles(list);
-      if (list.length > 0 && !activeProfile) {
-        setActiveProfile(list[0]);
-      }
-    } catch (e) {
-      console.error(e);
+      setActiveProfileIdState((current) =>
+        current && list.some((p) => p.id === current) ? current : list[0]?.id ?? null
+      );
+    } catch (e: any) {
+      console.error(`Failed to load connection profiles: ${e.message}`);
     }
-  };
-
-  const refreshDrafts = async () => {
-    try {
-      const list = await window.electronAPI.getDrafts();
-      setDrafts(list);
-      if (list.length > 0 && openDraftIds.length === 0) {
-        setOpenDraftIds([list[0].id]);
-        setActiveDraftId(list[0].id);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const applyTheme = (t: 'dark' | 'light') => {
-    if (t === 'light') {
-      document.documentElement.classList.remove('dark');
-      document.documentElement.classList.add('light');
-    } else {
-      document.documentElement.classList.remove('light');
-      document.documentElement.classList.add('dark');
-    }
-  };
-
-  const refreshSettings = async () => {
-    try {
-      const s = await window.electronAPI.getSettings();
-      setSettings(s);
-      const activeTheme = s.theme || 'dark';
-      setTheme(activeTheme);
-      applyTheme(activeTheme);
-    } catch (e) {
-      console.error(e);
-    }
-  };
+  }, []);
 
   useEffect(() => {
     refreshProfiles();
-    refreshDrafts();
-    refreshSettings();
-  }, []);
+    window.electronAPI
+      .getDrafts()
+      .then((list) =>
+        // Older drafts have no explicit-save baseline: what is on disk now becomes it.
+        setDrafts(list.map((d) => (d.savedSql === undefined ? { ...d, savedSql: d.sql } : d)))
+      )
+      .catch((e) => console.error(`Failed to load drafts: ${e.message}`))
+      .finally(() => setDraftsLoaded(true));
+    window.electronAPI
+      .getSettings()
+      .then((s) => {
+        setSettings(s);
+        setTheme(s.theme || 'dark');
+        applyTheme(s.theme || 'dark');
+      })
+      .catch((e) => console.error(`Failed to load settings: ${e.message}`));
+  }, [refreshProfiles]);
 
-  const connectProfile = async (profile: ConnectionProfile, password?: string): Promise<boolean> => {
-    try {
-      const res = await window.electronAPI.connect(profile, password);
-      if (res.success) {
-        setConnectedProfileIds((prev) => Array.from(new Set([...prev, profile.id])));
-        setActiveProfile(profile);
-        showToast(`Connected to ${profile.name}`, 'success');
-        return true;
-      } else {
+  const setConnectionState = (id: string, state: ConnectionState, error?: string) => {
+    setConnectionStates((prev) => ({ ...prev, [id]: { state, error } }));
+  };
+
+  const connectProfile = useCallback(
+    async (profile: ConnectionProfile, password?: string): Promise<boolean> => {
+      setConnectionState(profile.id, 'connecting');
+      try {
+        const res = await window.electronAPI.connect(profile, password);
+        if (res.success) {
+          setConnectionState(profile.id, 'connected');
+          setActiveProfileId(profile.id);
+          return true;
+        }
+        setConnectionState(profile.id, 'failed', res.message || 'Connection failed');
         showToast(res.message || 'Connection failed', 'danger');
         return false;
+      } catch (err) {
+        const message = cleanError(err, 'Connection failed');
+        setConnectionState(profile.id, 'failed', message);
+        showToast(`${profile.name}: ${message}`, 'danger');
+        return false;
       }
-    } catch (err: any) {
-      showToast(err.message || 'Connection failed', 'danger');
-      return false;
-    }
-  };
+    },
+    [setActiveProfileId, showToast]
+  );
 
-  const disconnectProfile = async (profileId: string) => {
-    try {
-      await window.electronAPI.disconnect(profileId);
-      setConnectedProfileIds((prev) => prev.filter((id) => id !== profileId));
-      showToast('Disconnected', 'info');
-    } catch (err: any) {
-      showToast(err.message || 'Disconnect failed', 'danger');
-    }
-  };
-
-  const saveProfile = async (profile: ConnectionProfile) => {
-    await window.electronAPI.saveProfile(profile);
-    await refreshProfiles();
-    showToast(`Profile “${profile.name}” saved`, 'success');
-  };
-
-  const deleteProfile = async (id: string) => {
-    const prof = profiles.find((p) => p.id === id);
-    await window.electronAPI.deleteProfile(id);
-    await disconnectProfile(id);
-    await refreshProfiles();
-    showToast(`Profile “${prof?.name || id}” removed`, 'info');
-  };
-
-  const openDraft = (draft: SqlDraft) => {
-    if (!openDraftIds.includes(draft.id)) {
-      setOpenDraftIds((prev) => [...prev, draft.id]);
-    }
-    setActiveDraftId(draft.id);
-  };
-
-  const closeDraft = (id: string) => {
-    const next = openDraftIds.filter((dId) => dId !== id);
-    setOpenDraftIds(next);
-    if (activeDraftId === id) {
-      setActiveDraftId(next.length > 0 ? next[next.length - 1] : null);
-    }
-  };
-
-  const closeOtherDrafts = (keepId: string) => {
-    setOpenDraftIds([keepId]);
-    setActiveDraftId(keepId);
-  };
-
-  const closeAllDrafts = () => {
-    setOpenDraftIds([]);
-    setActiveDraftId(null);
-  };
-
-  const closeDraftsToRight = (refId: string) => {
-    const idx = openDraftIds.indexOf(refId);
-    if (idx >= 0) {
-      const next = openDraftIds.slice(0, idx + 1);
-      setOpenDraftIds(next);
-      if (!next.includes(activeDraftId || '')) {
-        setActiveDraftId(refId);
+  const disconnectProfile = useCallback(
+    async (profileId: string) => {
+      try {
+        await window.electronAPI.disconnect(profileId);
+        setConnectionState(profileId, 'offline');
+      } catch (err) {
+        showToast(cleanError(err, 'Disconnect failed'), 'danger');
       }
-    }
-  };
+    },
+    [showToast]
+  );
 
-  const saveDraft = async (draft: SqlDraft) => {
-    await window.electronAPI.saveDraft(draft);
-    await refreshDrafts();
-  };
+  const saveProfile = useCallback(
+    async (profile: ConnectionProfile) => {
+      await window.electronAPI.saveProfile(profile);
+      await refreshProfiles();
+      showToast(`Saved “${profile.name}”`, 'success');
+    },
+    [refreshProfiles, showToast]
+  );
 
-  const deleteDraft = async (id: string) => {
-    const d = drafts.find((x) => x.id === id);
+  const deleteProfile = useCallback(
+    async (id: string) => {
+      await window.electronAPI.disconnect(id);
+      await window.electronAPI.deleteProfile(id);
+      setConnectionStates((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+      await refreshProfiles();
+    },
+    [refreshProfiles]
+  );
+
+  const updateDraft = useCallback((draft: SqlDraft) => {
+    setDrafts((prev) => prev.map((d) => (d.id === draft.id ? draft : d)));
+    const timers = pendingDraftSaves.current;
+    const existing = timers.get(draft.id);
+    if (existing) clearTimeout(existing);
+    timers.set(
+      draft.id,
+      setTimeout(() => {
+        timers.delete(draft.id);
+        window.electronAPI.saveDraft(draft).catch((e) => console.error(`Failed to save draft: ${e.message}`));
+      }, DRAFT_SAVE_DELAY_MS)
+    );
+  }, []);
+
+  const deleteDraft = useCallback(async (id: string) => {
+    const timers = pendingDraftSaves.current;
+    const pending = timers.get(id);
+    if (pending) clearTimeout(pending);
+    timers.delete(id);
     await window.electronAPI.deleteDraft(id);
-    closeDraft(id);
-    await refreshDrafts();
-    showToast(`Draft “${d?.title || id}” deleted`, 'info');
-  };
+    setDrafts((prev) => prev.filter((d) => d.id !== id));
+  }, []);
 
-  const createNewDraft = async (sql = '', title?: string) => {
-    const id = 'draft-' + Date.now();
-    const newDraft: SqlDraft = {
-      id,
-      title: title || `Draft ${drafts.length + 1}`,
+  const createDraft = useCallback(async (sql = '', title?: string, connectionId?: string | null) => {
+    const draft: SqlDraft = {
+      id: createId('draft'),
+      title: title || 'Untitled',
       sql,
-      connectionId: activeProfile?.id,
+      savedSql: sql,
+      connectionId: connectionId ?? null,
     };
-    await window.electronAPI.saveDraft(newDraft);
-    await refreshDrafts();
-    openDraft(newDraft);
-    showToast(`New draft created`, 'success');
-  };
+    const stored = await window.electronAPI.saveDraft(draft);
+    const created = { ...draft, ...stored };
+    setDrafts((prev) => [...prev, created]);
+    return created;
+  }, []);
 
-  const updateSettings = async (newSettings: Partial<WorkspaceSettings>) => {
-    const updated = await window.electronAPI.saveSettings(newSettings);
-    setSettings(updated);
-  };
+  const updateSettings = useCallback(async (newSettings: Partial<WorkspaceSettings>) => {
+    setSettings(await window.electronAPI.saveSettings(newSettings));
+  }, []);
 
-  const toggleTheme = () => {
-    const next = theme === 'dark' ? 'light' : 'dark';
-    setTheme(next);
-    applyTheme(next);
-    updateSettings({ theme: next });
-  };
+  const toggleTheme = useCallback(() => {
+    setTheme((current) => {
+      const next = current === 'dark' ? 'light' : 'dark';
+      applyTheme(next);
+      window.electronAPI.saveSettings({ theme: next }).then(setSettings);
+      return next;
+    });
+  }, []);
 
-  const closeModals = () => {
-    setPromptModal(null);
-    setDangerModal(null);
-    setWarningModal(null);
-    setEditingProfile(undefined);
-  };
+  const activeProfile = useMemo(
+    () => profiles.find((p) => p.id === activeProfileId) ?? null,
+    [profiles, activeProfileId]
+  );
+  const connectedProfileIds = useMemo(
+    () => Object.keys(connectionStates).filter((id) => connectionStates[id].state === 'connected'),
+    [connectionStates]
+  );
+
+  const value = useMemo<StudioContextType>(
+    () => ({
+      profiles,
+      activeProfile,
+      setActiveProfileId,
+      connectedProfileIds,
+      connectionStates,
+      refreshProfiles,
+      connectProfile,
+      disconnectProfile,
+      saveProfile,
+      deleteProfile,
+      drafts,
+      draftsLoaded,
+      updateDraft,
+      deleteDraft,
+      createDraft,
+      settings,
+      updateSettings,
+      theme,
+      toggleTheme,
+      toasts,
+      showToast,
+      removeToast,
+      openPromptModal: setPromptModal,
+      openDangerModal: setDangerModal,
+      openWarningModal: setWarningModal,
+      openEditProfileModal: (p) => setEditingProfile(p ?? null),
+    }),
+    [
+      profiles,
+      activeProfile,
+      setActiveProfileId,
+      connectedProfileIds,
+      connectionStates,
+      refreshProfiles,
+      connectProfile,
+      disconnectProfile,
+      saveProfile,
+      deleteProfile,
+      drafts,
+      draftsLoaded,
+      updateDraft,
+      deleteDraft,
+      createDraft,
+      settings,
+      updateSettings,
+      theme,
+      toggleTheme,
+      toasts,
+      showToast,
+      removeToast,
+    ]
+  );
 
   return (
-    <StudioContext.Provider
-      value={{
-        activeView,
-        setActiveView,
-        profiles,
-        activeProfile,
-        setActiveProfile,
-        connectedProfileIds,
-        refreshProfiles,
-        connectProfile,
-        disconnectProfile,
-        saveProfile,
-        deleteProfile,
-        drafts,
-        activeDraftId,
-        setActiveDraftId,
-        openDraftIds,
-        openDraft,
-        closeDraft,
-        closeOtherDrafts,
-        closeAllDrafts,
-        closeDraftsToRight,
-        saveDraft,
-        deleteDraft,
-        createNewDraft,
-        settings,
-        updateSettings,
-        theme,
-        toggleTheme,
-        toasts,
-        showToast,
-        removeToast,
-        openPromptModal: (opts) => setPromptModal(opts),
-        openDangerModal: (opts) => setDangerModal(opts),
-        openWarningModal: (opts) => setWarningModal(opts),
-        openEditProfileModal: (p) => setEditingProfile(p === undefined ? null : p),
-        editingProfile,
-        closeModals,
-      }}
-    >
+    <StudioContext.Provider value={value}>
       {children}
-      {/* Modals rendered here */}
-      {promptModal && (
-        <PromptModal
-          {...promptModal}
-          onClose={() => setPromptModal(null)}
-        />
-      )}
-      {dangerModal && (
-        <DangerConfirmModal
-          {...dangerModal}
-          onClose={() => setDangerModal(null)}
-        />
-      )}
-      {warningModal && (
-        <WarningConfirmModal
-          {...warningModal}
-          onClose={() => setWarningModal(null)}
-        />
-      )}
+      {promptModal && <PromptModal {...promptModal} onClose={() => setPromptModal(null)} />}
+      {dangerModal && <DangerConfirmModal {...dangerModal} onClose={() => setDangerModal(null)} />}
+      {warningModal && <WarningConfirmModal {...warningModal} onClose={() => setWarningModal(null)} />}
       {editingProfile !== undefined && (
         <ConnectionModal
           profile={editingProfile}
@@ -379,9 +374,3 @@ export const useStudio = () => {
   if (!context) throw new Error('useStudio must be used within a StudioProvider');
   return context;
 };
-
-// Imports of modal components placed after to prevent circular dependency
-import { PromptModal } from '../components/Modals/PromptModal';
-import { DangerConfirmModal } from '../components/Modals/DangerConfirmModal';
-import { WarningConfirmModal } from '../components/Modals/WarningConfirmModal';
-import { ConnectionModal } from '../components/Modals/ConnectionModal';
