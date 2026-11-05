@@ -102,6 +102,9 @@ export const CommandPalette: React.FC = () => {
                 <CommandItem shortcut="Mod+J" onSelect={run(workspace.togglePanel)}>
                   <PanelBottom /> Toggle bottom panel
                 </CommandItem>
+                <CommandItem shortcut="Mod+L" onSelect={run(workspace.toggleAiPanel)}>
+                  <Sparkles /> Toggle AI panel
+                </CommandItem>
                 <CommandItem onSelect={run(toggleTheme)}>
                   {theme === 'dark' ? <Sun /> : <Moon />} Switch to {theme === 'dark' ? 'light' : 'dark'} theme
                 </CommandItem>

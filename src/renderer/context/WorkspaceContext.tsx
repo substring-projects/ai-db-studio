@@ -77,6 +77,9 @@ interface WorkspaceContextType {
   setPanelView: (view: PanelView) => void;
   paletteOpen: boolean;
   setPaletteOpen: (open: boolean) => void;
+  aiPanelOpen: boolean;
+  setAiPanelOpen: (open: boolean) => void;
+  toggleAiPanel: () => void;
 
   // Execution
   runs: Record<string, RunState>;
@@ -135,6 +138,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   );
   const [panelView, setPanelView] = useState<PanelView>(() => prefs.get('studio:panelView', 'results'));
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [aiPanelOpen, setAiPanelOpenState] = useState<boolean>(() => prefs.get('studio:aiPanelOpen', false));
 
   const [runs, setRuns] = useState<Record<string, RunState>>({});
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -163,6 +167,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   useEffect(() => prefs.set('studio:sidebarOpen', sidebarOpen), [sidebarOpen]);
   useEffect(() => prefs.set('studio:panelOpen', panelByKind), [panelByKind]);
   useEffect(() => prefs.set('studio:panelView', panelView), [panelView]);
+  useEffect(() => prefs.set('studio:aiPanelOpen', aiPanelOpen), [aiPanelOpen]);
 
   useEffect(() => {
     window.electronAPI.getHistory().then(setHistory).catch(() => undefined);
@@ -380,6 +385,8 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const setSidebarOpen = useCallback((open: boolean) => setSidebarOpenState(open), []);
   const toggleSidebar = useCallback(() => setSidebarOpenState((v) => !v), []);
+  const setAiPanelOpen = useCallback((open: boolean) => setAiPanelOpenState(open), []);
+  const toggleAiPanel = useCallback(() => setAiPanelOpenState((v) => !v), []);
   const setPanelOpen = useCallback((open: boolean) => {
     setPanelByKind((prev) => (prev[panelKindRef.current] === open ? prev : { ...prev, [panelKindRef.current]: open }));
   }, []);
@@ -558,6 +565,9 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setPanelView,
       paletteOpen,
       setPaletteOpen,
+      aiPanelOpen,
+      setAiPanelOpen,
+      toggleAiPanel,
       runs,
       runSql,
       cancelRun,
@@ -596,6 +606,9 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       togglePanel,
       panelView,
       paletteOpen,
+      aiPanelOpen,
+      setAiPanelOpen,
+      toggleAiPanel,
       runs,
       runSql,
       cancelRun,

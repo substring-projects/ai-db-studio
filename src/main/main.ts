@@ -46,6 +46,7 @@ function setupMenu() {
         { label: 'Command Palette', accelerator: 'CmdOrCtrl+K', click: send('command-palette') },
         { label: 'Toggle Sidebar', accelerator: 'CmdOrCtrl+B', click: send('toggle-sidebar') },
         { label: 'Toggle Bottom Panel', accelerator: 'CmdOrCtrl+J', click: send('toggle-panel') },
+        { label: 'Toggle AI Panel', accelerator: 'CmdOrCtrl+L', click: send('toggle-ai-panel') },
         { type: 'separator' },
         { role: 'resetZoom' },
         { role: 'zoomIn' },

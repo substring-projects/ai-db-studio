@@ -3,15 +3,18 @@ import { useDefaultLayout, type PanelImperativeHandle } from 'react-resizable-pa
 import { useStudio } from '../../context/StudioContext';
 import { useWorkspace } from '../../context/WorkspaceContext';
 import { useChat } from '../../context/ChatContext';
-import { isMac } from '../../lib/utils';
+import { isMac, prefs } from '../../lib/utils';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '../ui/resizable';
 import { ToastContainer } from '../ToastContainer';
 import { TitleBar } from './TitleBar';
 import { ActivityBar, useSelectActivity } from './ActivityBar';
 import { SidePanel } from './SidePanel';
 import { Workspace } from './Workspace';
+import { AiPanel } from './AiPanel';
 import { StatusBar } from './StatusBar';
 import { CommandPalette } from './CommandPalette';
+
+const AI_PANEL_DEFAULT_WIDTH = 400;
 
 const useGlobalCommands = () => {
   const { drafts, updateDraft, showToast } = useStudio();
@@ -31,6 +34,9 @@ const useGlobalCommands = () => {
         break;
       case 'toggle-panel':
         workspace.togglePanel();
+        break;
+      case 'toggle-ai-panel':
+        workspace.toggleAiPanel();
         break;
       case 'new-query':
         workspace.newQuery();
@@ -98,6 +104,7 @@ const useGlobalCommands = () => {
         k: 'command-palette',
         b: 'toggle-sidebar',
         j: 'toggle-panel',
+        l: 'toggle-ai-panel',
         t: 'new-query',
         w: 'close-tab',
         s: 'save-query',
@@ -128,11 +135,13 @@ const useGlobalCommands = () => {
 };
 
 export const AppShell: React.FC = () => {
-  const { sidebarOpen, setSidebarOpen } = useWorkspace();
+  const { sidebarOpen, setSidebarOpen, aiPanelOpen, setAiPanelOpen } = useWorkspace();
   const sidebarRef = useRef<PanelImperativeHandle>(null);
+  const aiPanelRef = useRef<PanelImperativeHandle>(null);
   useGlobalCommands();
 
-  const { defaultLayout, onLayoutChanged } = useDefaultLayout({ id: 'studio-shell', storage: localStorage });
+  // A new id, because layouts saved under the old one describe only two panels.
+  const { defaultLayout, onLayoutChanged } = useDefaultLayout({ id: 'studio-shell-v2', storage: localStorage });
 
   useEffect(() => {
     const panel = sidebarRef.current;
@@ -141,13 +150,24 @@ export const AppShell: React.FC = () => {
     if (!sidebarOpen && !panel.isCollapsed()) panel.collapse();
   }, [sidebarOpen]);
 
+  useEffect(() => {
+    const panel = aiPanelRef.current;
+    if (!panel) return;
+    if (aiPanelOpen && panel.isCollapsed()) {
+      panel.expand();
+      // Expanding a panel that started collapsed lands on its minimum, so restore the real width.
+      panel.resize(prefs.get('studio:aiPanelWidth', AI_PANEL_DEFAULT_WIDTH));
+    }
+    if (!aiPanelOpen && !panel.isCollapsed()) panel.collapse();
+  }, [aiPanelOpen]);
+
   return (
     <div className="flex h-full w-full flex-col overflow-hidden bg-background text-foreground">
       <TitleBar />
       <div className="flex min-h-0 flex-1">
         <ActivityBar />
         <ResizablePanelGroup
-          id="studio-shell"
+          id="studio-shell-v2"
           orientation="horizontal"
           defaultLayout={defaultLayout}
           onLayoutChanged={onLayoutChanged}
@@ -167,8 +187,25 @@ export const AppShell: React.FC = () => {
             <SidePanel />
           </ResizablePanel>
           <ResizableHandle orientation="vertical" />
-          <ResizablePanel id="workspace" minSize={420}>
+          <ResizablePanel id="workspace" minSize={320}>
             <Workspace />
+          </ResizablePanel>
+          <ResizableHandle orientation="vertical" className={aiPanelOpen ? undefined : 'hidden'} />
+          <ResizablePanel
+            id="ai-panel"
+            panelRef={aiPanelRef}
+            collapsible
+            collapsedSize={0}
+            minSize={300}
+            maxSize={760}
+            defaultSize={aiPanelOpen ? prefs.get('studio:aiPanelWidth', AI_PANEL_DEFAULT_WIDTH) : 0}
+            groupResizeBehavior="preserve-pixel-size"
+            onResize={(size) => {
+              setAiPanelOpen(size.inPixels > 0);
+              if (size.inPixels > 0) prefs.set('studio:aiPanelWidth', Math.round(size.inPixels));
+            }}
+          >
+            {aiPanelOpen && <AiPanel />}
           </ResizablePanel>
         </ResizablePanelGroup>
       </div>

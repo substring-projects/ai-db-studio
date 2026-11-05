@@ -1,5 +1,5 @@
 import React from 'react';
-import { Moon, PanelBottom, PanelLeft, Search, Sun } from 'lucide-react';
+import { Moon, PanelBottom, PanelLeft, Search, Sparkles, Sun } from 'lucide-react';
 import { useStudio } from '../../context/StudioContext';
 import { useWorkspace } from '../../context/WorkspaceContext';
 import { cn, isMac, shortcutLabel } from '../../lib/utils';
@@ -9,7 +9,7 @@ import logoImg from '../../assets/logo.png';
 
 export const TitleBar: React.FC = () => {
   const { theme, toggleTheme } = useStudio();
-  const { sidebarOpen, toggleSidebar, panelOpen, togglePanel, setPaletteOpen } = useWorkspace();
+  const { sidebarOpen, toggleSidebar, panelOpen, togglePanel, aiPanelOpen, toggleAiPanel, setPaletteOpen } = useWorkspace();
 
   return (
     <header
@@ -45,6 +45,11 @@ export const TitleBar: React.FC = () => {
         <Tooltip content={panelOpen ? 'Hide bottom panel' : 'Show bottom panel'} shortcut="Mod+J">
           <Button variant="quiet" size="icon-sm" aria-label="Toggle bottom panel" aria-pressed={panelOpen} onClick={togglePanel}>
             <PanelBottom className={cn(panelOpen && 'text-foreground')} />
+          </Button>
+        </Tooltip>
+        <Tooltip content={aiPanelOpen ? 'Hide AI panel' : 'Show AI panel'} shortcut="Mod+L">
+          <Button variant="quiet" size="icon-sm" aria-label="Toggle AI panel" aria-pressed={aiPanelOpen} onClick={toggleAiPanel}>
+            <Sparkles className={cn(aiPanelOpen && 'text-primary')} />
           </Button>
         </Tooltip>
         <Tooltip content={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}>

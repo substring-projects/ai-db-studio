@@ -96,7 +96,12 @@ const User: React.FC<{ message: ChatMessage }> = ({ message }) => (
   </div>
 );
 
-export const AiChatView: React.FC<{ conversationId: string; active: boolean }> = ({ conversationId, active }) => {
+export const AiChatView: React.FC<{
+  conversationId: string;
+  active: boolean;
+  /** Shown beside the workspace rather than as a tab. */
+  docked?: boolean;
+}> = ({ conversationId, active, docked = false }) => {
   const { conversations, ask, stop, setConversationProfile, clearConversation, openNewConversation, autoRun, setAutoRun } = useChat();
   const { profiles, activeProfile, connectionStates, connectProfile, settings, updateSettings, setActiveProfileId } = useStudio();
   const { schemas } = useSchema();
@@ -116,8 +121,16 @@ export const AiChatView: React.FC<{ conversationId: string; active: boolean }> =
     }
   }, [conversation, activeProfile, setConversationProfile]);
 
+  // A blank docked conversation follows the connection being worked on in the workspace.
   useEffect(() => {
-    if (active && profileId) setActiveProfileId(profileId);
+    if (docked && conversation && conversation.messages.length === 0 && activeProfile && conversation.profileId !== activeProfile.id) {
+      setConversationProfile(conversation.id, activeProfile.id);
+    }
+  }, [docked, conversation, activeProfile, setConversationProfile]);
+
+  useEffect(() => {
+    // The panel sits beside the workspace, which decides the active connection.
+    if (!docked && active && profileId) setActiveProfileId(profileId);
     // Only when the tab comes to the front: changing connection elsewhere must not be overridden.
   }, [active]);
 
@@ -213,7 +226,7 @@ export const AiChatView: React.FC<{ conversationId: string; active: boolean }> =
 
   const privacyNote = (
     <p className="mt-1.5 text-center text-2xs text-muted-foreground">
-      {composerHint()}. Safe reads run automatically; changes wait for your review.{' '}
+      {!docked && `${composerHint()}. `}Safe reads run automatically; changes wait for your review.{' '}
       {settings.aiShareResults ? 'The model can read query results.' : 'The model sees your schema, not your rows.'}
     </p>
   );
@@ -221,7 +234,7 @@ export const AiChatView: React.FC<{ conversationId: string; active: boolean }> =
   return (
     <div className="flex h-full min-h-0 flex-col">
       {messages.length === 0 ? (
-        <div className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto px-6 py-8">
+        <div className={cn('flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto', docked ? 'px-3 py-4' : 'px-6 py-8')}>
           <div className="w-full max-w-2xl">
             <h1 className="text-base font-semibold">
               {profile ? `Ask about ${profile.name}` : 'Ask about your database'}
@@ -259,21 +272,23 @@ export const AiChatView: React.FC<{ conversationId: string; active: boolean }> =
         </div>
       ) : (
         <>
-          <div className="flex h-8 shrink-0 items-center justify-between border-b border-border pl-3 pr-1.5">
-            <span className="min-w-0 truncate text-xs text-muted-foreground">{conversation.title}</span>
-            <div className="flex shrink-0 items-center gap-0.5">
-              <Tooltip content="Clear this conversation">
-                <Button variant="quiet" size="icon-sm" aria-label="Clear conversation" disabled={streaming} onClick={() => clearConversation(conversation.id)}>
-                  <Eraser />
-                </Button>
-              </Tooltip>
-              <Tooltip content="New conversation" shortcut="Mod+Shift+L">
-                <Button variant="quiet" size="icon-sm" aria-label="New conversation" onClick={openNewConversation}>
-                  <Plus />
-                </Button>
-              </Tooltip>
+          {!docked && (
+            <div className="flex h-8 shrink-0 items-center justify-between border-b border-border pl-3 pr-1.5">
+              <span className="min-w-0 truncate text-xs text-muted-foreground">{conversation.title}</span>
+              <div className="flex shrink-0 items-center gap-0.5">
+                <Tooltip content="Clear this conversation">
+                  <Button variant="quiet" size="icon-sm" aria-label="Clear conversation" disabled={streaming} onClick={() => clearConversation(conversation.id)}>
+                    <Eraser />
+                  </Button>
+                </Tooltip>
+                <Tooltip content="New conversation" shortcut="Mod+Shift+L">
+                  <Button variant="quiet" size="icon-sm" aria-label="New conversation" onClick={openNewConversation}>
+                    <Plus />
+                  </Button>
+                </Tooltip>
+              </div>
             </div>
-          </div>
+          )}
           <div
             ref={scrollerRef}
             onScroll={(e) => {
@@ -282,7 +297,7 @@ export const AiChatView: React.FC<{ conversationId: string; active: boolean }> =
             }}
             className="min-h-0 flex-1 overflow-y-auto"
           >
-            <div className="mx-auto w-full max-w-3xl space-y-5 px-5 py-5" aria-live="polite">
+            <div className={cn('mx-auto w-full max-w-3xl space-y-5', docked ? 'px-3 py-3' : 'px-5 py-5')} aria-live="polite">
               {messages.map((message, i) =>
                 message.role === 'user' ? (
                   <User key={message.id} message={message} />
@@ -292,7 +307,7 @@ export const AiChatView: React.FC<{ conversationId: string; active: boolean }> =
               )}
             </div>
           </div>
-          <div className="shrink-0 px-5 pb-3">
+          <div className={cn('shrink-0 pb-3', docked ? 'px-3' : 'px-5')}>
             <div className="mx-auto w-full max-w-3xl">
               {composer}
               {privacyNote}

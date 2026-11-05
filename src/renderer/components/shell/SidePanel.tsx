@@ -5,6 +5,7 @@ import {
   FileCode2,
   MessageSquare,
   MoreHorizontal,
+  PanelRight,
   Pencil,
   Plus,
   Search,
@@ -156,8 +157,8 @@ const DraftsSidebar: React.FC = () => {
 };
 
 const ChatSidebar: React.FC = () => {
-  const { conversations, openNewConversation, deleteConversation, renameConversation } = useChat();
-  const { openChat, activeTab, tabs, closeTab } = useWorkspace();
+  const { conversations, openNewConversation, deleteConversation, renameConversation, setPanelConversationId } = useChat();
+  const { openChat, activeTab, tabs, closeTab, setAiPanelOpen } = useWorkspace();
   const { openPromptModal, openDangerModal } = useStudio();
   const [search, setSearch] = useState('');
   const visible = conversations.filter(
@@ -200,6 +201,14 @@ const ChatSidebar: React.FC = () => {
                 </ListRow>
               </ContextMenuTrigger>
               <ContextMenuContent>
+                <ContextMenuItem
+                  onSelect={() => {
+                    setPanelConversationId(conversation.id);
+                    setAiPanelOpen(true);
+                  }}
+                >
+                  <PanelRight /> Open in side panel
+                </ContextMenuItem>
                 <ContextMenuItem
                   onSelect={() =>
                     openPromptModal({

@@ -104,6 +104,7 @@ export const SqlEditor = React.forwardRef<SqlEditorHandle, SqlEditorProps>(
         editor.addCommand(CtrlCmd | key, passthrough(name));
       }
       editor.addCommand(CtrlCmd | Shift | monaco.KeyCode.KeyL, passthrough('new-chat'));
+      editor.addCommand(CtrlCmd | monaco.KeyCode.KeyL, passthrough('toggle-ai-panel'));
 
       const reportCursor = () => {
         if (!activeRef.current) return;

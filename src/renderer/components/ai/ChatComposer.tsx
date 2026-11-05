@@ -24,9 +24,21 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({ streaming, disabled,
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, MAX_HEIGHT)}px`;
-    el.style.overflowY = el.scrollHeight > MAX_HEIGHT ? 'auto' : 'hidden';
+    const fit = () => {
+      el.style.height = 'auto';
+      el.style.height = `${Math.min(el.scrollHeight, MAX_HEIGHT)}px`;
+      el.style.overflowY = el.scrollHeight > MAX_HEIGHT ? 'auto' : 'hidden';
+    };
+    fit();
+    // Text wraps differently at each width, and a docked panel mounts while it is still opening.
+    let lastWidth = el.clientWidth;
+    const observer = new ResizeObserver(() => {
+      if (el.clientWidth === lastWidth) return;
+      lastWidth = el.clientWidth;
+      fit();
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
   }, [text]);
 
   useEffect(() => {

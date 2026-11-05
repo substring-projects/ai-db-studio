@@ -52,6 +52,10 @@ export interface Conversation {
 interface ChatContextType {
   conversations: Conversation[];
   openNewConversation: () => void;
+  /** The conversation shown in the right side panel. */
+  panelConversationId: string | null;
+  setPanelConversationId: (id: string) => void;
+  newPanelConversation: () => void;
   deleteConversation: (id: string) => void;
   renameConversation: (id: string, title: string) => void;
   setConversationProfile: (id: string, profileId: string | null) => void;
@@ -122,7 +126,7 @@ function migrate(saved: any[]): Conversation[] {
 export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { profiles, activeProfile, showToast } = useStudio();
   const { schemas, loadSchema } = useSchema();
-  const { openChat, appendLog, addHistory, tabs, activeTab } = useWorkspace();
+  const { openChat, appendLog, addHistory, tabs, activeTab, aiPanelOpen } = useWorkspace();
 
   const [conversations, setConversationsState] = useState<Conversation[]>(() => migrate(prefs.get<any[]>(STORAGE_KEY, [])));
   const [autoRun, setAutoRunState] = useState<boolean>(() => prefs.get('studio:ai:autoRun', true));
@@ -146,6 +150,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   profilesRef.current = profiles;
   const activeTabRef = useRef(activeTab);
   activeTabRef.current = activeTab;
+  const aiPanelOpenRef = useRef(aiPanelOpen);
+  aiPanelOpenRef.current = aiPanelOpen;
+  const panelConversationIdRef = useRef<string | null>(null);
 
   // Persist quietly; a burst of stream chunks collapses into one write.
   useEffect(() => {
@@ -242,7 +249,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
             ],
           }));
           if (event.needsReview) {
-            const looking = activeTabRef.current?.kind === 'ai' && activeTabRef.current.conversationId === conversationId;
+            const inTab = activeTabRef.current?.kind === 'ai' && activeTabRef.current.conversationId === conversationId;
+            const inPanel = aiPanelOpenRef.current && panelConversationIdRef.current === conversationId;
+            const looking = inTab || inPanel;
             if (!looking) showToast('A statement from the AI assistant is waiting for your review.', 'warning');
           }
           break;
@@ -312,6 +321,48 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     ]);
     openChat(id);
   }, [activeProfile?.id, openChat, setConversations]);
+
+  /** An empty conversation to start from: reuses a blank one rather than piling them up. */
+  const blankConversation = useCallback((): string => {
+    const blank = conversationsRef.current.find((c) => c.messages.length === 0);
+    if (blank) return blank.id;
+    const id = createId('chat');
+    const now = Date.now();
+    setConversations((prev) => [
+      { id, title: 'New conversation', profileId: activeProfile?.id ?? null, messages: [], createdAt: now, updatedAt: now },
+      ...prev,
+    ]);
+    return id;
+  }, [activeProfile?.id, setConversations]);
+
+  const [panelConversationId, setPanelConversationIdState] = useState<string | null>(() =>
+    prefs.get<string | null>('studio:aiPanelConversation', null)
+  );
+  panelConversationIdRef.current = panelConversationId;
+  const setPanelConversationId = useCallback((id: string) => {
+    setPanelConversationIdState(id);
+    prefs.set('studio:aiPanelConversation', id);
+  }, []);
+  const newPanelConversation = useCallback(
+    () => setPanelConversationId(blankConversation()),
+    [blankConversation, setPanelConversationId]
+  );
+
+  // The panel always shows a conversation: the last one it had, else the one on screen, else the latest.
+  useEffect(() => {
+    if (!aiPanelOpen) return;
+    const known = (id: string | null) => conversationsRef.current.some((c) => c.id === id);
+    if (known(panelConversationId)) return;
+    const onScreen = activeTabRef.current?.kind === 'ai' ? activeTabRef.current.conversationId : null;
+    if (known(onScreen)) {
+      setPanelConversationId(onScreen!);
+      return;
+    }
+    const latest = [...conversationsRef.current]
+      .filter((c) => c.messages.length > 0)
+      .sort((a, b) => b.updatedAt - a.updatedAt)[0];
+    setPanelConversationId(latest?.id ?? blankConversation());
+  }, [aiPanelOpen, conversations, panelConversationId, blankConversation, setPanelConversationId]);
 
   const deleteConversation = useCallback(
     (id: string) => {
@@ -501,6 +552,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     () => ({
       conversations,
       openNewConversation,
+      panelConversationId,
+      setPanelConversationId,
+      newPanelConversation,
       deleteConversation,
       renameConversation,
       setConversationProfile,
@@ -517,6 +571,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [
       conversations,
       openNewConversation,
+      panelConversationId,
+      setPanelConversationId,
+      newPanelConversation,
       deleteConversation,
       renameConversation,
       setConversationProfile,
