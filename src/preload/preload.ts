@@ -22,6 +22,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getTables: (id: string) => ipcRenderer.invoke("db:tables", id),
   getColumns: (id: string, table: string) =>
     ipcRenderer.invoke("db:columns", id, table),
+  getTableStructure: (id: string, table: string) =>
+    ipcRenderer.invoke("db:structure", id, table),
   getTableData: (
     id: string,
     table: string,
@@ -49,6 +51,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke("query:prepare", id, sql),
   executeQuery: (id: string, sql: string, token?: string) =>
     ipcRenderer.invoke("query:execute", id, sql, token),
+  explainQuery: (id: string, sql: string) =>
+    ipcRenderer.invoke("query:explain", id, sql),
   cancelQuery: (id: string) => ipcRenderer.invoke("query:cancel", id),
 
   // Drafts
@@ -65,6 +69,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getSettings: () => ipcRenderer.invoke("settings:get"),
   saveSettings: (s: Partial<WorkspaceSettings>) =>
     ipcRenderer.invoke("settings:save", s),
+
+  // AI Assistant
+  askAi: (prompt: string, schemaContext: string, settings: WorkspaceSettings) =>
+    ipcRenderer.invoke("ai:ask", prompt, schemaContext, settings),
 
   // Clipboard
   copyToClipboard: async (text: string) => {

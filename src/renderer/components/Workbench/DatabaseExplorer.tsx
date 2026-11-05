@@ -12,6 +12,10 @@ import {
   Copy,
   SlidersHorizontal,
   X,
+  Plus,
+  Info,
+  Trash2,
+  AlertTriangle,
 } from 'lucide-react';
 import { DbTable, TableColumn, FilterRule } from '../../../shared/types';
 import { useStudio } from '../../context/StudioContext';
@@ -20,13 +24,23 @@ import { AdvancedFilterModal } from '../Modals/AdvancedFilterModal';
 interface DatabaseExplorerProps {
   onSelectTableData: (table: DbTable, rules?: FilterRule[], matchAny?: boolean) => void;
   onQueryTable: (table: DbTable) => void;
+  onInspectStructure: (table: DbTable) => void;
+  onCreateTable: () => void;
+  onDropTable: (table: DbTable) => void;
+  onTruncateTable: (table: DbTable) => void;
   onClose: () => void;
+  onSchemaUpdate?: (tables: DbTable[], columnsMap: Record<string, TableColumn[]>) => void;
 }
 
 export const DatabaseExplorer: React.FC<DatabaseExplorerProps> = ({
   onSelectTableData,
   onQueryTable,
+  onInspectStructure,
+  onCreateTable,
+  onDropTable,
+  onTruncateTable,
   onClose,
+  onSchemaUpdate,
 }) => {
   const { activeProfile, connectedProfileIds, connectProfile, showToast } = useStudio();
   const isConnected = activeProfile && connectedProfileIds.includes(activeProfile.id);
@@ -50,6 +64,9 @@ export const DatabaseExplorer: React.FC<DatabaseExplorerProps> = ({
     try {
       const res = await window.electronAPI.getTables(activeProfile.id);
       setTables(res);
+      if (onSchemaUpdate) {
+        onSchemaUpdate(res, columnsMap);
+      }
     } catch (err: any) {
       showToast(err.message || 'Failed to load tables', 'danger');
     } finally {
@@ -77,7 +94,11 @@ export const DatabaseExplorer: React.FC<DatabaseExplorerProps> = ({
     if (!columnsMap[table.name] && activeProfile) {
       try {
         const cols = await window.electronAPI.getColumns(activeProfile.id, table.name);
-        setColumnsMap((prev) => ({ ...prev, [table.name]: cols }));
+        const updated = { ...columnsMap, [table.name]: cols };
+        setColumnsMap(updated);
+        if (onSchemaUpdate) {
+          onSchemaUpdate(tables, updated);
+        }
       } catch (err: any) {
         showToast(err.message || 'Failed to load columns', 'danger');
       }
@@ -101,12 +122,26 @@ export const DatabaseExplorer: React.FC<DatabaseExplorerProps> = ({
   return (
     <div className="w-80 h-full flex flex-col bg-studio-sidebar border-l border-studio-border shrink-0 select-none animate-slide-right">
       {/* Explorer Header */}
-      <div className="h-11 px-4 flex items-center justify-between border-b border-studio-border bg-studio-surface/40 shrink-0">
+      <div className="h-11 px-3.5 flex items-center justify-between border-b border-studio-border bg-studio-surface/40 shrink-0">
         <div className="flex items-center gap-2 text-xs font-semibold text-studio-text">
           <Table2 className="w-4 h-4 text-studio-accent" />
-          <span>Database Explorer</span>
+          <span>Explorer</span>
+          {tables.length > 0 && (
+            <span className="px-1.5 py-0.2 rounded text-[10px] bg-studio-bg text-studio-muted font-mono">
+              {tables.length}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-1">
+          {isConnected && (
+            <button
+              onClick={onCreateTable}
+              title="Create New Table"
+              className="p-1.5 text-studio-muted hover:text-studio-accent rounded-md hover:bg-white/5 transition-colors cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+            </button>
+          )}
           <button
             onClick={loadTables}
             disabled={!isConnected || loading}
@@ -213,6 +248,13 @@ export const DatabaseExplorer: React.FC<DatabaseExplorerProps> = ({
                           <Play className="w-3 h-3" />
                         </button>
                         <button
+                          onClick={() => onInspectStructure(table)}
+                          title="Inspect Structure"
+                          className="p-1 hover:text-studio-accent rounded hover:bg-white/10"
+                        >
+                          <Info className="w-3 h-3 text-cyan-400" />
+                        </button>
+                        <button
                           onClick={() => setFilterModalTable(table)}
                           title="Advanced Filter"
                           className="p-1 hover:text-studio-accent rounded hover:bg-white/10"
@@ -259,7 +301,7 @@ export const DatabaseExplorer: React.FC<DatabaseExplorerProps> = ({
       {contextMenu && (
         <div
           style={{ top: contextMenu.y, left: contextMenu.x }}
-          className="fixed z-50 w-52 py-1.5 bg-studio-surface border border-studio-border rounded-xl shadow-2xl text-xs select-none animate-pop-in"
+          className="fixed z-50 w-56 py-1.5 bg-studio-surface border border-studio-border rounded-xl shadow-2xl text-xs select-none animate-pop-in"
         >
           <button
             onClick={() => {
@@ -286,6 +328,17 @@ export const DatabaseExplorer: React.FC<DatabaseExplorerProps> = ({
 
           <button
             onClick={() => {
+              onInspectStructure(contextMenu.table);
+              setContextMenu(null);
+            }}
+            className="w-full flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/5 text-studio-text text-left cursor-pointer"
+          >
+            <Info className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Inspect Structure & DDL…</span>
+          </button>
+
+          <button
+            onClick={() => {
               setFilterModalTable(contextMenu.table);
               setContextMenu(null);
             }}
@@ -307,6 +360,30 @@ export const DatabaseExplorer: React.FC<DatabaseExplorerProps> = ({
           >
             <Copy className="w-3.5 h-3.5 text-studio-muted" />
             <span>Copy Table Name</span>
+          </button>
+
+          <div className="h-px bg-studio-border my-1" />
+
+          <button
+            onClick={() => {
+              onTruncateTable(contextMenu.table);
+              setContextMenu(null);
+            }}
+            className="w-full flex items-center gap-2.5 px-3 py-1.5 hover:bg-amber-500/10 text-amber-400 text-left cursor-pointer"
+          >
+            <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+            <span>Truncate Table…</span>
+          </button>
+
+          <button
+            onClick={() => {
+              onDropTable(contextMenu.table);
+              setContextMenu(null);
+            }}
+            className="w-full flex items-center gap-2.5 px-3 py-1.5 hover:bg-red-500/10 text-red-400 text-left cursor-pointer"
+          >
+            <Trash2 className="w-3.5 h-3.5 text-red-400" />
+            <span>Drop Table…</span>
           </button>
         </div>
       )}

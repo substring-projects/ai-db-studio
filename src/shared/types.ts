@@ -54,6 +54,29 @@ export interface TableColumn {
   typeName: string;
   primaryKey: boolean;
   nullable: boolean;
+  defaultValue?: string | null;
+}
+
+export interface TableIndex {
+  name: string;
+  columns: string[];
+  isUnique: boolean;
+  isPrimary: boolean;
+}
+
+export interface ForeignKey {
+  name: string;
+  column: string;
+  refTable: string;
+  refColumn: string;
+}
+
+export interface TableStructure {
+  tableName: string;
+  columns: TableColumn[];
+  indexes: TableIndex[];
+  foreignKeys: ForeignKey[];
+  ddl: string;
 }
 
 export interface DbTable {
@@ -96,6 +119,14 @@ export interface WorkspaceSettings {
   aiApiKey?: string;
 }
 
+export interface AiMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  sql?: string;
+  timestamp: number;
+}
+
 export interface ElectronAPI {
   // Profiles
   getProfiles: () => Promise<ConnectionProfile[]>;
@@ -108,6 +139,7 @@ export interface ElectronAPI {
   disconnect: (profileId: string) => Promise<void>;
   getTables: (profileId: string) => Promise<DbTable[]>;
   getColumns: (profileId: string, tableName: string) => Promise<TableColumn[]>;
+  getTableStructure: (profileId: string, tableName: string) => Promise<TableStructure>;
   getTableData: (
     profileId: string,
     tableName: string,
@@ -125,6 +157,7 @@ export interface ElectronAPI {
     proposal?: MutationProposal;
   }>;
   executeQuery: (profileId: string, sql: string, approvalToken?: string) => Promise<QueryResult>;
+  explainQuery: (profileId: string, sql: string) => Promise<QueryResult>;
   cancelQuery: (profileId: string) => Promise<void>;
 
   // Drafts
@@ -140,6 +173,13 @@ export interface ElectronAPI {
   // Settings
   getSettings: () => Promise<WorkspaceSettings>;
   saveSettings: (settings: Partial<WorkspaceSettings>) => Promise<WorkspaceSettings>;
+
+  // AI Assistant (Schema-grounded, zero row data transmitted)
+  askAi: (
+    prompt: string,
+    schemaContext: string,
+    settings: WorkspaceSettings
+  ) => Promise<{ content: string; sql?: string }>;
 
   // Clipboard
   copyToClipboard: (text: string) => Promise<void>;

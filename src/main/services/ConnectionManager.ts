@@ -9,6 +9,9 @@ import {
   QueryResult,
   StatementClassification,
   TableColumn,
+  TableIndex,
+  ForeignKey,
+  TableStructure,
 } from '../../shared/types';
 import { SqlClassifier } from './SqlClassifier';
 
@@ -197,6 +200,176 @@ export class ConnectionManager {
         primaryKey: (r.column_key || r.COLUMN_KEY) === 'PRI',
       }));
     }
+  }
+
+  public async getTableStructure(profileId: string, tableName: string): Promise<TableStructure> {
+    const session = this.sessions.get(profileId);
+    if (!session) throw new Error('Database is not connected');
+
+    const columns: TableColumn[] = [];
+    const indexes: TableIndex[] = [];
+    const foreignKeys: ForeignKey[] = [];
+
+    if (session.profile.engine === 'POSTGRESQL') {
+      const colsSql = `
+        SELECT c.column_name, c.data_type, c.is_nullable, c.column_default,
+               (CASE WHEN pk.column_name IS NOT NULL THEN true ELSE false END) as is_pk
+        FROM information_schema.columns c
+        LEFT JOIN (
+          SELECT kcu.column_name
+          FROM information_schema.table_constraints tc
+          JOIN information_schema.key_column_usage kcu
+            ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
+          WHERE tc.constraint_type = 'PRIMARY KEY' AND tc.table_name = $1
+        ) pk ON c.column_name = pk.column_name
+        WHERE c.table_name = $1
+        ORDER BY c.ordinal_position;
+      `;
+      const colsRes = await session.pgPool!.query(colsSql, [tableName]);
+      columns.push(
+        ...colsRes.rows.map((r: any) => ({
+          name: r.column_name,
+          typeName: r.data_type,
+          nullable: r.is_nullable === 'YES',
+          primaryKey: Boolean(r.is_pk),
+          defaultValue: r.column_default,
+        }))
+      );
+
+      const idxSql = `
+        SELECT indexname, indexdef
+        FROM pg_indexes
+        WHERE tablename = $1;
+      `;
+      const idxRes = await session.pgPool!.query(idxSql, [tableName]);
+      for (const r of idxRes.rows) {
+        const isUnique = /CREATE UNIQUE INDEX/i.test(r.indexdef);
+        const isPrimary = /_pkey\b/i.test(r.indexname);
+        const match = r.indexdef.match(/\((.*?)\)/);
+        const cols = match ? match[1].split(',').map((s: string) => s.trim().replace(/"/g, '')) : [];
+        indexes.push({
+          name: r.indexname,
+          columns: cols,
+          isUnique,
+          isPrimary,
+        });
+      }
+
+      const fkSql = `
+        SELECT
+          tc.constraint_name,
+          kcu.column_name,
+          ccu.table_name AS foreign_table_name,
+          ccu.column_name AS foreign_column_name
+        FROM information_schema.table_constraints AS tc
+        JOIN information_schema.key_column_usage AS kcu
+          ON tc.constraint_name = kcu.constraint_name
+          AND tc.table_schema = kcu.table_schema
+        JOIN information_schema.constraint_column_usage AS ccu
+          ON ccu.constraint_name = tc.constraint_name
+          AND ccu.table_schema = tc.table_schema
+        WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_name = $1;
+      `;
+      const fkRes = await session.pgPool!.query(fkSql, [tableName]);
+      foreignKeys.push(
+        ...fkRes.rows.map((r: any) => ({
+          name: r.constraint_name,
+          column: r.column_name,
+          refTable: r.foreign_table_name,
+          refColumn: r.foreign_column_name,
+        }))
+      );
+    } else {
+      const colsSql = `
+        SELECT column_name, data_type, is_nullable, column_key, column_default
+        FROM information_schema.columns
+        WHERE table_schema = ? AND table_name = ?
+        ORDER BY ordinal_position;
+      `;
+      const [colRows] = await session.myPool!.query(colsSql, [session.profile.database, tableName]);
+      columns.push(
+        ...(colRows as any[]).map((r: any) => ({
+          name: r.column_name || r.COLUMN_NAME,
+          typeName: r.data_type || r.DATA_TYPE,
+          nullable: (r.is_nullable || r.IS_NULLABLE) === 'YES',
+          primaryKey: (r.column_key || r.COLUMN_KEY) === 'PRI',
+          defaultValue: r.column_default || r.COLUMN_DEFAULT,
+        }))
+      );
+
+      try {
+        const [idxRows] = await session.myPool!.query(`SHOW INDEX FROM \`${tableName}\``);
+        const idxGroup = new Map<string, { unique: boolean; primary: boolean; cols: string[] }>();
+        for (const r of idxRows as any[]) {
+          const keyName = r.Key_name;
+          if (!idxGroup.has(keyName)) {
+            idxGroup.set(keyName, {
+              unique: Number(r.Non_unique) === 0,
+              primary: keyName === 'PRIMARY',
+              cols: [],
+            });
+          }
+          idxGroup.get(keyName)!.cols.push(r.Column_name);
+        }
+        for (const [name, info] of idxGroup.entries()) {
+          indexes.push({
+            name,
+            columns: info.cols,
+            isUnique: info.unique,
+            isPrimary: info.primary,
+          });
+        }
+      } catch (e) {
+        console.error('Error fetching MySQL indexes', e);
+      }
+
+      try {
+        const fkSql = `
+          SELECT CONSTRAINT_NAME, COLUMN_NAME, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME
+          FROM information_schema.key_column_usage
+          WHERE table_schema = ? AND table_name = ? AND REFERENCED_TABLE_NAME IS NOT NULL;
+        `;
+        const [fkRows] = await session.myPool!.query(fkSql, [session.profile.database, tableName]);
+        foreignKeys.push(
+          ...(fkRows as any[]).map((r: any) => ({
+            name: r.CONSTRAINT_NAME,
+            column: r.COLUMN_NAME,
+            refTable: r.REFERENCED_TABLE_NAME,
+            refColumn: r.REFERENCED_COLUMN_NAME,
+          }))
+        );
+      } catch (e) {
+        console.error('Error fetching MySQL foreign keys', e);
+      }
+    }
+
+    const ddlLines = columns.map((col) => {
+      let line = `  ${col.name} ${col.typeName.toUpperCase()}`;
+      if (!col.nullable) line += ' NOT NULL';
+      if (col.defaultValue) line += ` DEFAULT ${col.defaultValue}`;
+      return line;
+    });
+    const pkCols = columns.filter((c) => c.primaryKey).map((c) => c.name);
+    if (pkCols.length > 0) {
+      ddlLines.push(`  PRIMARY KEY (${pkCols.join(', ')})`);
+    }
+    for (const fk of foreignKeys) {
+      ddlLines.push(
+        `  CONSTRAINT ${fk.name} FOREIGN KEY (${fk.column}) REFERENCES ${fk.refTable} (${fk.refColumn})`
+      );
+    }
+    const ddl = `CREATE TABLE ${tableName} (\n${ddlLines.join(',\n')}\n);`;
+
+    return { tableName, columns, indexes, foreignKeys, ddl };
+  }
+
+  public async explainQuery(profileId: string, sql: string): Promise<QueryResult> {
+    const session = this.sessions.get(profileId);
+    if (!session) throw new Error('Database is not connected');
+
+    const isPg = session.profile.engine === 'POSTGRESQL';
+    const explainSql = isPg ? `EXPLAIN (FORMAT TEXT) ${sql}` : `EXPLAIN ${sql}`;
+    return this.rawExecute(session, explainSql, []);
   }
 
   public async getTableData(

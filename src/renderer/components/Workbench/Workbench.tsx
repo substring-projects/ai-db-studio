@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
   Play,
-  StopCircle,
   Plus,
   X,
   Clock,
@@ -11,12 +10,27 @@ import {
   Edit2,
   Trash2,
   ChevronDown,
+  Sparkles,
+  HelpCircle,
+  Binary,
 } from 'lucide-react';
 import { useStudio } from '../../context/StudioContext';
 import { SqlEditor } from './SqlEditor';
 import { QueryResultsGrid } from './QueryResultsGrid';
 import { DatabaseExplorer } from './DatabaseExplorer';
-import { DbTable, FilterRule, QueryHistoryItem, QueryResult } from '../../../shared/types';
+import { AiAssistantPanel } from './AiAssistantPanel';
+import { TableStructureModal } from '../Modals/TableStructureModal';
+import { InsertRowModal } from '../Modals/InsertRowModal';
+import { EditCellModal } from '../Modals/EditCellModal';
+import { CreateTableModal } from '../Modals/CreateTableModal';
+import {
+  DbTable,
+  FilterRule,
+  QueryHistoryItem,
+  QueryResult,
+  TableColumn,
+  TableStructure,
+} from '../../../shared/types';
 
 export const Workbench: React.FC = () => {
   const {
@@ -61,12 +75,34 @@ export const Workbench: React.FC = () => {
   const [results, setResults] = useState<QueryResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Active Table Context for CRUD
+  const [currentTable, setCurrentTable] = useState<DbTable | null>(null);
+  const [currentTableColumns, setCurrentTableColumns] = useState<TableColumn[]>([]);
+  const [lastFilterRules, setLastFilterRules] = useState<{ rules?: FilterRule[]; matchAny?: boolean }>({});
+
+  // Explorer & AI Panel visibility
+  const [explorerVisible, setExplorerVisible] = useState(true);
+  const [aiPanelVisible, setAiPanelVisible] = useState(false);
+
+  // Database Schema caching (for AI Copilot)
+  const [schemaTables, setSchemaTables] = useState<DbTable[]>([]);
+  const [schemaColumnsMap, setSchemaColumnsMap] = useState<Record<string, TableColumn[]>>({});
+
+  // Modals state
+  const [structureModal, setStructureModal] = useState<TableStructure | null>(null);
+  const [insertModalOpen, setInsertModalOpen] = useState(false);
+  const [createTableModalOpen, setCreateTableModalOpen] = useState(false);
+  const [editCellState, setEditCellState] = useState<{
+    tableName: string;
+    columnName: string;
+    initialValue: any;
+    pkColumn?: string;
+    pkValue?: any;
+  } | null>(null);
+
   // History state
   const [historyList, setHistoryList] = useState<QueryHistoryItem[]>([]);
   const [showHistory, setShowHistory] = useState(false);
-
-  // Explorer collapse state
-  const [explorerVisible, setExplorerVisible] = useState(true);
 
   // Tab Context Menu state
   const [tabContextMenu, setTabContextMenu] = useState<{ x: number; y: number; draftId: string } | null>(null);
@@ -94,7 +130,8 @@ export const Workbench: React.FC = () => {
     return () => window.removeEventListener('click', handleOutside);
   }, []);
 
-  const execute = async (customSql?: string, overrideToken?: string) => {
+  // Execute SQL statement with safety rails & token approval
+  const execute = async (customSql?: string, overrideToken?: string, refreshTableAfter = false) => {
     if (!activeProfile) {
       showToast('Please select a database profile first.', 'warning');
       return;
@@ -114,7 +151,7 @@ export const Workbench: React.FC = () => {
         if (prep.proposal) {
           openWarningModal({
             proposal: prep.proposal,
-            onConfirm: (token) => execute(statement, token),
+            onConfirm: (token) => execute(statement, token, refreshTableAfter),
             onCancel: () => showToast('Execution cancelled by user', 'info'),
           });
         }
@@ -133,6 +170,10 @@ export const Workbench: React.FC = () => {
         connectionName: activeProfile.name,
       });
       loadHistory();
+
+      if (refreshTableAfter && currentTable) {
+        handleSelectTableData(currentTable, lastFilterRules.rules, lastFilterRules.matchAny);
+      }
     } catch (err: any) {
       setError(err.message || 'Execution error');
       setResults(null);
@@ -141,11 +182,42 @@ export const Workbench: React.FC = () => {
     }
   };
 
+  // Explain Query Plan
+  const explain = async () => {
+    if (!activeProfile) {
+      showToast('Please select a database profile first.', 'warning');
+      return;
+    }
+    if (!sql.trim()) return;
+
+    setRunning(true);
+    setError(null);
+
+    try {
+      const res = await window.electronAPI.explainQuery(activeProfile.id, sql);
+      setResults(res);
+      showToast('Query execution plan retrieved', 'info');
+    } catch (err: any) {
+      setError(err.message || 'Execution plan failed');
+      setResults(null);
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  // Select Table Data from Explorer
   const handleSelectTableData = async (table: DbTable, rules?: FilterRule[], matchAny?: boolean) => {
     if (!activeProfile) return;
     setRunning(true);
     setError(null);
+    setCurrentTable(table);
+    setLastFilterRules({ rules, matchAny });
+
     try {
+      // Load columns definition for this table if not cached
+      const cols = await window.electronAPI.getColumns(activeProfile.id, table.name);
+      setCurrentTableColumns(cols);
+
       const res = await window.electronAPI.getTableData(
         activeProfile.id,
         table.name,
@@ -167,8 +239,106 @@ export const Workbench: React.FC = () => {
   };
 
   const handleQueryTable = (table: DbTable) => {
-    const query = `SELECT * FROM ${table.name} LIMIT 100;`;
+    const query = `SELECT * FROM "${table.name}" LIMIT 100;`;
     createNewDraft(query, `${table.name}`);
+  };
+
+  // Inspect Table Structure
+  const handleInspectStructure = async (table: DbTable) => {
+    if (!activeProfile) return;
+    try {
+      const struct = await window.electronAPI.getTableStructure(activeProfile.id, table.name);
+      setStructureModal(struct);
+    } catch (err: any) {
+      showToast(err.message || 'Failed to inspect table structure', 'danger');
+    }
+  };
+
+  // Drop Table with confirmation
+  const handleDropTable = (table: DbTable) => {
+    openDangerModal({
+      title: 'Drop Table?',
+      subtitle: `This permanently destroys table "${table.name}" and all records within it.`,
+      message: `Are you sure you want to drop table "${table.name}"? This action cannot be undone.`,
+      actionText: 'Drop Table',
+      onConfirm: () => {
+        execute(`DROP TABLE "${table.name}";`);
+      },
+    });
+  };
+
+  // Truncate Table with confirmation
+  const handleTruncateTable = (table: DbTable) => {
+    openDangerModal({
+      title: 'Truncate Table?',
+      subtitle: `This immediately deletes ALL rows inside table "${table.name}".`,
+      message: `Are you sure you want to truncate table "${table.name}"?`,
+      actionText: 'Truncate Table',
+      onConfirm: () => {
+        execute(`TRUNCATE TABLE "${table.name}";`, undefined, true);
+      },
+    });
+  };
+
+  // Grid Cell Edit handler
+  const handleEditCell = (column: string, value: any, rowIndex: number, row: any[]) => {
+    if (!currentTable) return;
+
+    // Detect PK column
+    const pkCol = currentTableColumns.find((c) => c.primaryKey);
+    let pkValue: any = undefined;
+
+    if (pkCol && results) {
+      const pkIdx = results.columns.indexOf(pkCol.name);
+      if (pkIdx >= 0) {
+        pkValue = row[pkIdx];
+      }
+    }
+
+    setEditCellState({
+      tableName: currentTable.name,
+      columnName: column,
+      initialValue: value,
+      pkColumn: pkCol?.name,
+      pkValue,
+    });
+  };
+
+  // Grid Row Delete handler
+  const handleDeleteRow = (rowIndex: number, row: any[]) => {
+    if (!currentTable || !results) return;
+
+    const pkCol = currentTableColumns.find((c) => c.primaryKey);
+    let whereClause = '';
+
+    if (pkCol) {
+      const pkIdx = results.columns.indexOf(pkCol.name);
+      const pkVal = row[pkIdx];
+      whereClause = `WHERE "${pkCol.name}" = '${String(pkVal).replace(/'/g, "''")}'`;
+    } else {
+      // Fallback matching all non-null columns
+      const conditions = results.columns
+        .map((col, idx) => {
+          const val = row[idx];
+          if (val === null || val === undefined) return `"${col}" IS NULL`;
+          return `"${col}" = '${String(val).replace(/'/g, "''")}'`;
+        })
+        .slice(0, 3)
+        .join(' AND ');
+      whereClause = `WHERE ${conditions} LIMIT 1`;
+    }
+
+    const deleteSql = `DELETE FROM "${currentTable.name}" ${whereClause};`;
+
+    openDangerModal({
+      title: 'Delete Row?',
+      subtitle: `Table: ${currentTable.name}`,
+      message: `Are you sure you want to delete this row?\n${deleteSql}`,
+      actionText: 'Delete Row',
+      onConfirm: () => {
+        execute(deleteSql, undefined, true);
+      },
+    });
   };
 
   return (
@@ -223,7 +393,7 @@ export const Workbench: React.FC = () => {
 
         {/* Execution Toolbar */}
         <div className="h-11 px-4 flex items-center justify-between border-b border-studio-border bg-studio-bg shrink-0 select-none">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <button
               onClick={() => execute()}
               disabled={running}
@@ -235,7 +405,17 @@ export const Workbench: React.FC = () => {
                 <Play className="w-3.5 h-3.5 fill-current" />
               )}
               <span>Run Query</span>
-              <span className="text-[10px] opacity-75 font-mono ml-1">⌘↵</span>
+              <span className="text-[10px] opacity-75 font-mono ml-0.5">⌘↵</span>
+            </button>
+
+            <button
+              onClick={explain}
+              disabled={running}
+              title="Explain Query Execution Plan"
+              className="px-3 py-1.5 text-xs font-medium text-studio-muted hover:text-studio-text hover:bg-white/5 border border-studio-border rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <Binary className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Explain</span>
             </button>
 
             {/* Query History dropdown */}
@@ -296,38 +476,98 @@ export const Workbench: React.FC = () => {
             </div>
           </div>
 
-          {/* Toggle Explorer Button */}
-          <button
-            onClick={() => setExplorerVisible(!explorerVisible)}
-            title={explorerVisible ? 'Hide Database Explorer' : 'Show Database Explorer'}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-studio-muted hover:text-studio-text hover:bg-white/5 border border-studio-border rounded-lg transition-colors cursor-pointer"
-          >
-            {explorerVisible ? (
-              <PanelRightClose className="w-3.5 h-3.5" />
-            ) : (
-              <PanelRightOpen className="w-3.5 h-3.5 text-studio-accent" />
-            )}
-            <span>Explorer</span>
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Toggle AI Copilot */}
+            <button
+              onClick={() => setAiPanelVisible(!aiPanelVisible)}
+              title={aiPanelVisible ? 'Hide AI SQL Copilot' : 'Open AI SQL Copilot'}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-all cursor-pointer ${
+                aiPanelVisible
+                  ? 'bg-purple-500/15 text-purple-300 border-purple-500/30'
+                  : 'text-studio-muted hover:text-studio-text hover:bg-white/5 border-studio-border'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+              <span>AI Copilot</span>
+            </button>
+
+            {/* Toggle Explorer Button */}
+            <button
+              onClick={() => setExplorerVisible(!explorerVisible)}
+              title={explorerVisible ? 'Hide Database Explorer' : 'Show Database Explorer'}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-studio-muted hover:text-studio-text hover:bg-white/5 border border-studio-border rounded-lg transition-colors cursor-pointer"
+            >
+              {explorerVisible ? (
+                <PanelRightClose className="w-3.5 h-3.5" />
+              ) : (
+                <PanelRightOpen className="w-3.5 h-3.5 text-studio-accent" />
+              )}
+              <span>Explorer</span>
+            </button>
+          </div>
         </div>
 
         {/* Editor Area */}
-        <div className="h-64 shrink-0">
-          <SqlEditor value={sql} onChange={handleSqlChange} onExecute={() => execute()} />
+        <div className="h-60 shrink-0">
+          <SqlEditor
+            value={sql}
+            onChange={handleSqlChange}
+            onExecute={() => execute()}
+            onExplain={explain}
+          />
         </div>
 
         {/* Results Area */}
         <div className="flex-1 flex flex-col min-h-0">
-          <QueryResultsGrid results={results} loading={running} error={error} />
+          <QueryResultsGrid
+            results={results}
+            loading={running}
+            error={error}
+            tableName={currentTable?.name}
+            onEditCell={handleEditCell}
+            onInsertRow={() => setInsertModalOpen(true)}
+            onDeleteRow={handleDeleteRow}
+            onRefresh={() => {
+              if (currentTable) {
+                handleSelectTableData(currentTable, lastFilterRules.rules, lastFilterRules.matchAny);
+              } else {
+                execute();
+              }
+            }}
+          />
         </div>
       </div>
 
-      {/* Database Explorer on the RIGHT */}
+      {/* Database Explorer */}
       {explorerVisible && (
         <DatabaseExplorer
           onSelectTableData={handleSelectTableData}
           onQueryTable={handleQueryTable}
+          onInspectStructure={handleInspectStructure}
+          onCreateTable={() => setCreateTableModalOpen(true)}
+          onDropTable={handleDropTable}
+          onTruncateTable={handleTruncateTable}
           onClose={() => setExplorerVisible(false)}
+          onSchemaUpdate={(tables, columns) => {
+            setSchemaTables(tables);
+            setSchemaColumnsMap(columns);
+          }}
+        />
+      )}
+
+      {/* AI Assistant Panel */}
+      {aiPanelVisible && (
+        <AiAssistantPanel
+          tables={schemaTables}
+          columnsMap={schemaColumnsMap}
+          onInsertSql={(newSql) => {
+            handleSqlChange(newSql);
+          }}
+          onExecuteSql={(newSql) => {
+            handleSqlChange(newSql);
+            execute(newSql);
+          }}
+          onClose={() => setAiPanelVisible(false)}
         />
       )}
 
@@ -429,6 +669,45 @@ export const Workbench: React.FC = () => {
             <span>Delete Draft</span>
           </button>
         </div>
+      )}
+
+      {/* Table Structure Modal */}
+      {structureModal && (
+        <TableStructureModal
+          structure={structureModal}
+          onClose={() => setStructureModal(null)}
+        />
+      )}
+
+      {/* Insert Row Modal */}
+      {insertModalOpen && currentTable && (
+        <InsertRowModal
+          tableName={currentTable.name}
+          columns={currentTableColumns}
+          onInsert={(sql) => execute(sql, undefined, true)}
+          onClose={() => setInsertModalOpen(false)}
+        />
+      )}
+
+      {/* Edit Cell Modal */}
+      {editCellState && (
+        <EditCellModal
+          tableName={editCellState.tableName}
+          columnName={editCellState.columnName}
+          initialValue={editCellState.initialValue}
+          pkColumn={editCellState.pkColumn}
+          pkValue={editCellState.pkValue}
+          onSave={(sql) => execute(sql, undefined, true)}
+          onClose={() => setEditCellState(null)}
+        />
+      )}
+
+      {/* Create Table Modal */}
+      {createTableModalOpen && (
+        <CreateTableModal
+          onExecuteDdl={(ddl) => execute(ddl)}
+          onClose={() => setCreateTableModalOpen(false)}
+        />
       )}
     </div>
   );

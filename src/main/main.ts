@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { StorageService } from './services/StorageService';
 import { ConnectionManager } from './services/ConnectionManager';
+import { AiService } from './services/AiService';
 import { ConnectionProfile, FilterRule, SqlDraft, WorkspaceSettings } from '../shared/types';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -60,6 +61,7 @@ function setupIpc() {
   ipcMain.handle('db:disconnect', (_, id: string) => connections.disconnect(id));
   ipcMain.handle('db:tables', (_, id: string) => connections.getTables(id));
   ipcMain.handle('db:columns', (_, id: string, table: string) => connections.getColumns(id, table));
+  ipcMain.handle('db:structure', (_, id: string, table: string) => connections.getTableStructure(id, table));
   ipcMain.handle(
     'db:data',
     (
@@ -79,6 +81,10 @@ function setupIpc() {
   ipcMain.handle('query:prepare', (_, id: string, sql: string) => connections.prepareQuery(id, sql));
   ipcMain.handle('query:execute', (_, id: string, sql: string, token?: string) =>
     connections.executeQuery(id, sql, token)
+  );
+  ipcMain.handle('query:explain', (_, id: string, sql: string) => connections.explainQuery(id, sql));
+  ipcMain.handle('ai:ask', (_, prompt: string, schema: string, settings: WorkspaceSettings) =>
+    AiService.ask(prompt, schema, settings)
   );
   ipcMain.handle('query:cancel', () => {
     // Cancellation handler
