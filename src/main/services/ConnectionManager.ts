@@ -202,6 +202,82 @@ export class ConnectionManager {
     }
   }
 
+  public async getAllTableColumns(profileId: string): Promise<Record<string, TableColumn[]>> {
+    const session = this.sessions.get(profileId);
+    if (!session) throw new Error('Database is not connected');
+
+    const result: Record<string, TableColumn[]> = {};
+
+    if (session.profile.engine === 'POSTGRESQL') {
+      try {
+        const sql = `
+          SELECT c.table_name, c.column_name, c.data_type, c.is_nullable,
+                 (CASE WHEN pk.column_name IS NOT NULL THEN true ELSE false END) as is_pk
+          FROM information_schema.columns c
+          LEFT JOIN (
+            SELECT tc.table_name, kcu.column_name
+            FROM information_schema.table_constraints tc
+            JOIN information_schema.key_column_usage kcu
+              ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
+            WHERE tc.constraint_type = 'PRIMARY KEY'
+          ) pk ON c.table_name = pk.table_name AND c.column_name = pk.column_name
+          WHERE c.table_schema NOT IN ('pg_catalog', 'information_schema')
+          ORDER BY c.table_name, c.ordinal_position;
+        `;
+        const res = await session.pgPool!.query(sql);
+        for (const r of res.rows) {
+          const tName = r.table_name;
+          if (!result[tName]) result[tName] = [];
+          result[tName].push({
+            name: r.column_name,
+            typeName: r.data_type,
+            nullable: r.is_nullable === 'YES',
+            primaryKey: Boolean(r.is_pk),
+          });
+        }
+      } catch (err) {
+        // Fallback to simpler columns query if PK join fails
+        const fallbackSql = `
+          SELECT table_name, column_name, data_type, is_nullable
+          FROM information_schema.columns
+          WHERE table_schema NOT IN ('pg_catalog', 'information_schema')
+          ORDER BY table_name, ordinal_position;
+        `;
+        const res = await session.pgPool!.query(fallbackSql);
+        for (const r of res.rows) {
+          const tName = r.table_name;
+          if (!result[tName]) result[tName] = [];
+          result[tName].push({
+            name: r.column_name,
+            typeName: r.data_type,
+            nullable: r.is_nullable === 'YES',
+            primaryKey: false,
+          });
+        }
+      }
+    } else {
+      const sql = `
+        SELECT table_name, column_name, data_type, is_nullable, column_key
+        FROM information_schema.columns
+        WHERE table_schema = ?
+        ORDER BY table_name, ordinal_position;
+      `;
+      const [rows] = await session.myPool!.query(sql, [session.profile.database]);
+      for (const r of rows as any[]) {
+        const tName = r.table_name || r.TABLE_NAME;
+        if (!result[tName]) result[tName] = [];
+        result[tName].push({
+          name: r.column_name || r.COLUMN_NAME,
+          typeName: r.data_type || r.DATA_TYPE,
+          nullable: (r.is_nullable || r.IS_NULLABLE) === 'YES',
+          primaryKey: (r.column_key || r.COLUMN_KEY) === 'PRI',
+        });
+      }
+    }
+
+    return result;
+  }
+
   public async getTableStructure(profileId: string, tableName: string): Promise<TableStructure> {
     const session = this.sessions.get(profileId);
     if (!session) throw new Error('Database is not connected');

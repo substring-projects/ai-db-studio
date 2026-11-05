@@ -35,6 +35,7 @@ import {
 export const Workbench: React.FC = () => {
   const {
     activeProfile,
+    connectedProfileIds,
     drafts,
     activeDraftId,
     openDraftIds,
@@ -51,6 +52,8 @@ export const Workbench: React.FC = () => {
     openPromptModal,
     showToast,
   } = useStudio();
+
+  const isConnected = activeProfile && connectedProfileIds.includes(activeProfile.id);
 
   // Active SQL content
   const activeDraft = drafts.find((d) => d.id === activeDraftId) || drafts[0];
@@ -84,9 +87,147 @@ export const Workbench: React.FC = () => {
   const [explorerVisible, setExplorerVisible] = useState(true);
   const [aiPanelVisible, setAiPanelVisible] = useState(false);
 
-  // Database Schema caching (for AI Copilot)
+  // Resizable Layout Dimensions (persisted in localStorage)
+  const [editorHeight, setEditorHeight] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('studio:editorHeight');
+      return saved ? Math.max(90, Math.min(window.innerHeight - 200, parseInt(saved, 10))) : 240;
+    } catch {
+      return 240;
+    }
+  });
+
+  const [explorerWidth, setExplorerWidth] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('studio:explorerWidth');
+      return saved ? Math.max(220, Math.min(650, parseInt(saved, 10))) : 320;
+    } catch {
+      return 320;
+    }
+  });
+
+  const [aiPanelWidth, setAiPanelWidth] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('studio:aiPanelWidth');
+      return saved ? Math.max(260, Math.min(750, parseInt(saved, 10))) : 380;
+    } catch {
+      return 380;
+    }
+  });
+
+  // Resizing mouse event handlers
+  const handleEditorResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startH = editorHeight;
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const delta = moveEvent.clientY - startY;
+      const nextH = Math.max(90, Math.min(window.innerHeight - 200, startH + delta));
+      setEditorHeight(nextH);
+      try {
+        localStorage.setItem('studio:editorHeight', String(nextH));
+      } catch {}
+    };
+
+    const onMouseUp = () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    document.body.style.cursor = 'row-resize';
+    document.body.style.userSelect = 'none';
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
+
+  const handleExplorerResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = explorerWidth;
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const delta = startX - moveEvent.clientX;
+      const nextW = Math.max(220, Math.min(650, startW + delta));
+      setExplorerWidth(nextW);
+      try {
+        localStorage.setItem('studio:explorerWidth', String(nextW));
+      } catch {}
+    };
+
+    const onMouseUp = () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
+
+  const handleAiResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = aiPanelWidth;
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const delta = startX - moveEvent.clientX;
+      const nextW = Math.max(260, Math.min(750, startW + delta));
+      setAiPanelWidth(nextW);
+      try {
+        localStorage.setItem('studio:aiPanelWidth', String(nextW));
+      } catch {}
+    };
+
+    const onMouseUp = () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
+
+  // Database Schema caching (for AI Copilot & fast autocomplete)
   const [schemaTables, setSchemaTables] = useState<DbTable[]>([]);
   const [schemaColumnsMap, setSchemaColumnsMap] = useState<Record<string, TableColumn[]>>({});
+
+  // Prefetch complete database schema (all tables + all columns) on connection
+  const loadFullSchema = async () => {
+    if (!activeProfile || !connectedProfileIds.includes(activeProfile.id)) {
+      setSchemaTables([]);
+      setSchemaColumnsMap({});
+      return;
+    }
+    try {
+      const [tables, allCols] = await Promise.all([
+        window.electronAPI.getTables(activeProfile.id),
+        window.electronAPI.getAllColumns(activeProfile.id).catch(() => ({})),
+      ]);
+      setSchemaTables(tables || []);
+      setSchemaColumnsMap(allCols || {});
+    } catch (e) {
+      console.warn('Schema prefetch warning:', e);
+    }
+  };
+
+  useEffect(() => {
+    if (isConnected) {
+      loadFullSchema();
+    } else {
+      setSchemaTables([]);
+      setSchemaColumnsMap({});
+    }
+  }, [activeProfile?.id, isConnected]);
 
   // Modals state
   const [structureModal, setStructureModal] = useState<TableStructure | null>(null);
@@ -178,6 +319,11 @@ export const Workbench: React.FC = () => {
         showToast('Table data updated successfully', 'success');
       } else {
         setResults(res);
+      }
+
+      // Automatically refresh full schema if DDL query ran
+      if (/^\s*(CREATE|DROP|ALTER|TRUNCATE)\b/i.test(statement)) {
+        loadFullSchema();
       }
     } catch (err: any) {
       setError(err.message || 'Execution error');
@@ -523,13 +669,28 @@ export const Workbench: React.FC = () => {
         </div>
 
         {/* Editor Area */}
-        <div className="h-60 shrink-0">
+        <div style={{ height: `${editorHeight}px` }} className="shrink-0 flex flex-col min-h-0">
           <SqlEditor
             value={sql}
             onChange={handleSqlChange}
             onExecute={() => execute()}
             onExplain={explain}
           />
+        </div>
+
+        {/* Horizontal Drag Handle between Editor and Results Grid */}
+        <div
+          onMouseDown={handleEditorResizeStart}
+          onDoubleClick={() => {
+            setEditorHeight(240);
+            try {
+              localStorage.setItem('studio:editorHeight', '240');
+            } catch {}
+          }}
+          title="Drag to resize SQL Editor (Double-click to reset to default)"
+          className="h-2 -my-1 relative z-20 cursor-row-resize flex items-center justify-center group hover:bg-primary/20 active:bg-primary/40 transition-colors select-none shrink-0"
+        >
+          <div className="w-12 h-1 rounded-full bg-border group-hover:bg-primary transition-colors" />
         </div>
 
         {/* Results Area */}
@@ -555,35 +716,73 @@ export const Workbench: React.FC = () => {
 
       {/* Database Explorer */}
       {explorerVisible && (
-        <DatabaseExplorer
-          onSelectTableData={handleSelectTableData}
-          onQueryTable={handleQueryTable}
-          onInspectStructure={handleInspectStructure}
-          onCreateTable={() => setCreateTableModalOpen(true)}
-          onDropTable={handleDropTable}
-          onTruncateTable={handleTruncateTable}
-          onClose={() => setExplorerVisible(false)}
-          onSchemaUpdate={(tables, columns) => {
-            setSchemaTables(tables);
-            setSchemaColumnsMap(columns);
-          }}
-        />
+        <>
+          {/* Vertical Drag Handle for Database Explorer */}
+          <div
+            onMouseDown={handleExplorerResizeStart}
+            onDoubleClick={() => {
+              setExplorerWidth(320);
+              try {
+                localStorage.setItem('studio:explorerWidth', '320');
+              } catch {}
+            }}
+            title="Drag to resize Database Explorer (Double-click to reset)"
+            className="w-2 -mx-1 relative z-20 cursor-col-resize flex flex-col items-center justify-center group hover:bg-primary/20 active:bg-primary/40 transition-colors select-none shrink-0"
+          >
+            <div className="w-1 h-12 rounded-full bg-border group-hover:bg-primary transition-colors" />
+          </div>
+
+          <DatabaseExplorer
+            width={explorerWidth}
+            initialColumnsMap={schemaColumnsMap}
+            onSelectTableData={handleSelectTableData}
+            onQueryTable={handleQueryTable}
+            onInspectStructure={handleInspectStructure}
+            onCreateTable={() => setCreateTableModalOpen(true)}
+            onDropTable={handleDropTable}
+            onTruncateTable={handleTruncateTable}
+            onClose={() => setExplorerVisible(false)}
+            onSchemaUpdate={(tables, columns) => {
+              setSchemaTables(tables);
+              setSchemaColumnsMap((prev) => ({ ...prev, ...columns }));
+            }}
+          />
+        </>
       )}
 
       {/* AI Assistant Panel */}
       {aiPanelVisible && (
-        <AiAssistantPanel
-          tables={schemaTables}
-          columnsMap={schemaColumnsMap}
-          onInsertSql={(newSql) => {
-            handleSqlChange(newSql);
-          }}
-          onExecuteSql={(newSql) => {
-            handleSqlChange(newSql);
-            execute(newSql);
-          }}
-          onClose={() => setAiPanelVisible(false)}
-        />
+        <>
+          {/* Vertical Drag Handle for AI Assistant */}
+          <div
+            onMouseDown={handleAiResizeStart}
+            onDoubleClick={() => {
+              setAiPanelWidth(380);
+              try {
+                localStorage.setItem('studio:aiPanelWidth', '380');
+              } catch {}
+            }}
+            title="Drag to resize AI Copilot (Double-click to reset)"
+            className="w-2 -mx-1 relative z-20 cursor-col-resize flex flex-col items-center justify-center group hover:bg-primary/20 active:bg-primary/40 transition-colors select-none shrink-0"
+          >
+            <div className="w-1 h-12 rounded-full bg-border group-hover:bg-primary transition-colors" />
+          </div>
+
+          <AiAssistantPanel
+            width={aiPanelWidth}
+            tables={schemaTables}
+            columnsMap={schemaColumnsMap}
+            onInsertSql={(newSql) => {
+              handleSqlChange(newSql);
+            }}
+            onExecuteSql={(newSql) => {
+              handleSqlChange(newSql);
+              execute(newSql);
+            }}
+            onClose={() => setAiPanelVisible(false)}
+            onRefreshSchema={loadFullSchema}
+          />
+        </>
       )}
 
       {/* Tab Context Menu */}

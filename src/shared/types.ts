@@ -139,6 +139,7 @@ export interface ElectronAPI {
   disconnect: (profileId: string) => Promise<void>;
   getTables: (profileId: string) => Promise<DbTable[]>;
   getColumns: (profileId: string, tableName: string) => Promise<TableColumn[]>;
+  getAllColumns: (profileId: string) => Promise<Record<string, TableColumn[]>>;
   getTableStructure: (profileId: string, tableName: string) => Promise<TableStructure>;
   getTableData: (
     profileId: string,

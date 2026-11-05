@@ -22,6 +22,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getTables: (id: string) => ipcRenderer.invoke("db:tables", id),
   getColumns: (id: string, table: string) =>
     ipcRenderer.invoke("db:columns", id, table),
+  getAllColumns: (id: string) => ipcRenderer.invoke("db:all-columns", id),
   getTableStructure: (id: string, table: string) =>
     ipcRenderer.invoke("db:structure", id, table),
   getTableData: (

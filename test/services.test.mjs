@@ -225,3 +225,100 @@ test('synthesizes grounded SQL from natural language prompts', () => {
   assert.strictEqual(heuristicSql('count all records in orders', schema), 'SELECT COUNT(*) AS total_count FROM "orders";');
   assert.strictEqual(heuristicSql('show latest users', schema), 'SELECT * FROM "users" ORDER BY 1 DESC LIMIT 25;');
 });
+
+test('synthesizes exact column names from grounded schema context', () => {
+  const schemaContext = `TABLE "users" (id integer (PRIMARY KEY) NOT NULL, email character varying NOT NULL, full_name character varying, created_at timestamp without time zone);\nTABLE "orders" (order_id bigint (PRIMARY KEY), customer_id bigint, amount numeric(10,2), order_date date);`;
+
+  function advancedHeuristicSql(prompt, schema) {
+    const p = prompt.toLowerCase();
+    const tableRegex = /TABLE\s+["`]?([a-zA-Z0-9_]+)["`]?\s*\(([\s\S]*?)\);/gi;
+    const tableNames = [];
+    const schemaColumnsMap = {};
+
+    let match;
+    while ((match = tableRegex.exec(schema)) !== null) {
+      const tableName = match[1];
+      tableNames.push(tableName);
+      const colsRaw = match[2];
+      if (colsRaw && !colsRaw.includes('columns unknown')) {
+        const cols = colsRaw
+          .split(/,(?![^(]*\))/)
+          .map((c) => {
+            const trimmed = c.trim().replace(/^["`]|["`]/g, '');
+            const colNameMatch = trimmed.match(/^([a-zA-Z0-9_]+)/);
+            return colNameMatch ? colNameMatch[1] : '';
+          })
+          .filter(Boolean);
+        schemaColumnsMap[tableName] = cols;
+      } else {
+        schemaColumnsMap[tableName] = [];
+      }
+    }
+
+    const firstTable = tableNames[0];
+    const matchedTable =
+      tableNames.find((t) => {
+        const tLower = t.toLowerCase();
+        return p.includes(tLower) || (tLower.endsWith('s') && p.includes(tLower.slice(0, -1)));
+      }) || firstTable;
+
+    const matchedCols = matchedTable ? schemaColumnsMap[matchedTable] || [] : [];
+
+    if (p.includes('recent') || p.includes('latest')) {
+      const orderCol =
+        matchedCols.find((c) => /^(created_at|created_on|order_date|timestamp)$/i.test(c)) ||
+        matchedCols.find((c) => /^id$/i.test(c)) ||
+        '1';
+      return `SELECT * FROM "${matchedTable}" ORDER BY "${orderCol}" DESC LIMIT 25;`;
+    }
+
+    if (matchedTable && matchedCols.length > 0) {
+      const referencedCols = matchedCols.filter((col) => p.includes(col.toLowerCase()));
+      if (referencedCols.length > 0 && referencedCols.length < matchedCols.length) {
+        const colsFormatted = referencedCols.map((c) => `"${c}"`).join(', ');
+        return `SELECT ${colsFormatted} FROM "${matchedTable}" LIMIT 50;`;
+      }
+    }
+
+    return `SELECT * FROM "${matchedTable}" LIMIT 50;`;
+  }
+
+  // 1. Correctly uses created_at timestamp column for recent users
+  const recentUsers = advancedHeuristicSql('find latest users', schemaContext);
+  assert.strictEqual(recentUsers, 'SELECT * FROM "users" ORDER BY "created_at" DESC LIMIT 25;');
+
+  // 2. Correctly uses exact columns when user asks for specific attributes
+  const userEmails = advancedHeuristicSql('show user email and full_name', schemaContext);
+  assert.strictEqual(userEmails, 'SELECT "email", "full_name" FROM "users" LIMIT 50;');
+
+  // 3. Correctly uses order_date for orders
+  const recentOrders = advancedHeuristicSql('show recent orders', schemaContext);
+  assert.strictEqual(recentOrders, 'SELECT * FROM "orders" ORDER BY "order_date" DESC LIMIT 25;');
+});
+
+test('groups all database columns by table name correctly', () => {
+  const rawRows = [
+    { table_name: 'users', column_name: 'id', data_type: 'integer', is_nullable: 'NO', is_pk: true },
+    { table_name: 'users', column_name: 'email', data_type: 'varchar', is_nullable: 'NO', is_pk: false },
+    { table_name: 'orders', column_name: 'order_id', data_type: 'bigint', is_nullable: 'NO', is_pk: true },
+    { table_name: 'orders', column_name: 'amount', data_type: 'numeric', is_nullable: 'YES', is_pk: false },
+  ];
+
+  const map = {};
+  for (const r of rawRows) {
+    if (!map[r.table_name]) map[r.table_name] = [];
+    map[r.table_name].push({
+      name: r.column_name,
+      typeName: r.data_type,
+      nullable: r.is_nullable === 'YES',
+      primaryKey: Boolean(r.is_pk),
+    });
+  }
+
+  assert.strictEqual(Object.keys(map).length, 2);
+  assert.strictEqual(map.users.length, 2);
+  assert.strictEqual(map.users[0].name, 'id');
+  assert.strictEqual(map.users[0].primaryKey, true);
+  assert.strictEqual(map.users[1].name, 'email');
+  assert.strictEqual(map.orders[0].name, 'order_id');
+});

@@ -63,6 +63,7 @@ function setupIpc() {
   ipcMain.handle('db:disconnect', (_, id: string) => connections.disconnect(id));
   ipcMain.handle('db:tables', (_, id: string) => connections.getTables(id));
   ipcMain.handle('db:columns', (_, id: string, table: string) => connections.getColumns(id, table));
+  ipcMain.handle('db:all-columns', (_, id: string) => connections.getAllTableColumns(id));
   ipcMain.handle('db:structure', (_, id: string, table: string) => connections.getTableStructure(id, table));
   ipcMain.handle(
     'db:data',

@@ -16,11 +16,13 @@ export class AiService {
 Your mission is to understand user questions in natural language and generate clean, optimized, robust SQL queries.
 
 STRICT ACCURACY & PRIVACY GUIDELINES:
-1. Ground queries STRICTLY in the Database Schema provided below. Never invent table names or column names that are not in the schema.
-2. If the user refers to a table or column by a synonym or singular/plural (e.g. "order" vs "orders", "user" vs "users"), map it accurately to the actual schema object.
-3. ALWAYS enclose the recommended SQL query inside a single fenced \`\`\`sql ... \`\`\` code block.
-4. Keep explanations concise, professional, and directly actionable.
-5. Provide helpful notes on performance, indexes, or potential NULL handling when appropriate.
+1. Ground queries STRICTLY in the Database Schema provided below.
+2. NEVER hallucinate, guess, or invent table or column names. ONLY use the exact column names provided in the schema definitions.
+3. Pay careful attention to column names and types in each table: TABLE "<table_name>" (<col1> <type>, <col2> <type>, ...). Use the exact column names as defined.
+4. If the user refers to a table or column by a synonym or singular/plural (e.g. "order" vs "orders", "user" vs "users"), map it accurately to the actual schema object.
+5. ALWAYS enclose the recommended SQL query inside a single fenced \`\`\`sql ... \`\`\` code block.
+6. Keep explanations concise, professional, and directly actionable.
+7. Provide helpful notes on performance, indexes, or potential NULL handling when appropriate.
 
 CURRENT DATABASE SCHEMA:
 ${schemaContext || 'No schema metadata provided. Write general SQL and clearly specify placeholder table names.'}`;
@@ -179,13 +181,46 @@ ${schemaContext || 'No schema metadata provided. Write general SQL and clearly s
   public static heuristicSql(prompt: string, schemaContext: string): string | undefined {
     const p = prompt.toLowerCase();
 
-    // Extract table names from schema context (e.g., "TABLE users (id, name)")
-    const tableMatches = [...schemaContext.matchAll(/TABLE\s+([a-zA-Z0-9_]+)/gi)].map((m) => m[1]);
-    const firstTable = tableMatches[0];
+    // Extract table definitions and known column names from schemaContext
+    // Matches e.g.: TABLE "users" (id integer PRIMARY KEY NOT NULL, email character varying NOT NULL);
+    const tableRegex = /TABLE\s+["`]?([a-zA-Z0-9_]+)["`]?\s*\(([\s\S]*?)\);/gi;
+    const tableNames: string[] = [];
+    const schemaColumnsMap: Record<string, string[]> = {};
 
-    // Check if prompt specifically mentions any known table
-    const matchedTable = tableMatches.find((t) => p.includes(t.toLowerCase())) || firstTable;
+    let match: RegExpExecArray | null;
+    while ((match = tableRegex.exec(schemaContext)) !== null) {
+      const tableName = match[1];
+      tableNames.push(tableName);
 
+      const colsRaw = match[2];
+      if (colsRaw && !colsRaw.includes('columns unknown')) {
+        // Split by comma outside parentheses so types like numeric(10,2) aren't broken
+        const cols = colsRaw
+          .split(/,(?![^(]*\))/)
+          .map((c) => {
+            const trimmed = c.trim().replace(/^["`]|["`]/g, '');
+            const colNameMatch = trimmed.match(/^([a-zA-Z0-9_]+)/);
+            return colNameMatch ? colNameMatch[1] : '';
+          })
+          .filter(Boolean);
+        schemaColumnsMap[tableName] = cols;
+      } else {
+        schemaColumnsMap[tableName] = [];
+      }
+    }
+
+    const firstTable = tableNames[0];
+
+    // Check if prompt specifically mentions any known table (or plural/singular)
+    const matchedTable =
+      tableNames.find((t) => {
+        const tLower = t.toLowerCase();
+        return p.includes(tLower) || (tLower.endsWith('s') && p.includes(tLower.slice(0, -1)));
+      }) || firstTable;
+
+    const matchedCols = matchedTable ? schemaColumnsMap[matchedTable] || [] : [];
+
+    // Check for row counts
     if (p.includes('count') || p.includes('how many')) {
       if (matchedTable) {
         return `SELECT COUNT(*) AS total_count FROM "${matchedTable}";`;
@@ -193,9 +228,37 @@ ${schemaContext || 'No schema metadata provided. Write general SQL and clearly s
       return `SELECT table_name, table_rows FROM information_schema.tables WHERE table_schema = 'public';`;
     }
 
+    // Check for recent/latest records: prefer exact timestamp/date/id column if present
     if (p.includes('recent') || p.includes('latest') || p.includes('newest')) {
       if (matchedTable) {
-        return `SELECT * FROM "${matchedTable}" ORDER BY 1 DESC LIMIT 25;`;
+        const orderCol =
+          matchedCols.find((c) => /^(created_at|created_on|inserted_at|timestamp|updated_at|date)$/i.test(c)) ||
+          matchedCols.find((c) => /^id$/i.test(c)) ||
+          '1';
+        const colExpr = orderCol === '1' ? '1' : `"${orderCol}"`;
+        return `SELECT * FROM "${matchedTable}" ORDER BY ${colExpr} DESC LIMIT 25;`;
+      }
+    }
+
+    // Check for primary keys
+    if (p.includes('primary key') || p.includes('pk')) {
+      if (matchedTable) {
+        const pkCol = matchedCols.find((c) => /^(id|uuid|pk|_id)$/i.test(c)) || matchedCols[0];
+        if (pkCol) {
+          return `SELECT "${pkCol}" FROM "${matchedTable}" LIMIT 50;`;
+        }
+      }
+    }
+
+    // Check for specific columns requested (e.g. "show user email and name")
+    if (matchedTable && matchedCols.length > 0) {
+      const referencedCols = matchedCols.filter((col) => {
+        const colLower = col.toLowerCase();
+        return p.includes(colLower);
+      });
+      if (referencedCols.length > 0 && referencedCols.length < matchedCols.length) {
+        const colsFormatted = referencedCols.map((c) => `"${c}"`).join(', ');
+        return `SELECT ${colsFormatted} FROM "${matchedTable}" LIMIT 50;`;
       }
     }
 

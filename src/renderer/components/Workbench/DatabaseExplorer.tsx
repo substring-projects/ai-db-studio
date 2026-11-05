@@ -32,6 +32,8 @@ interface DatabaseExplorerProps {
   onTruncateTable: (table: DbTable) => void;
   onClose: () => void;
   onSchemaUpdate?: (tables: DbTable[], columnsMap: Record<string, TableColumn[]>) => void;
+  initialColumnsMap?: Record<string, TableColumn[]>;
+  width?: number;
 }
 
 export const DatabaseExplorer: React.FC<DatabaseExplorerProps> = ({
@@ -43,6 +45,8 @@ export const DatabaseExplorer: React.FC<DatabaseExplorerProps> = ({
   onTruncateTable,
   onClose,
   onSchemaUpdate,
+  initialColumnsMap,
+  width,
 }) => {
   const { activeProfile, connectedProfileIds, connectProfile, showToast } = useStudio();
   const isConnected = activeProfile && connectedProfileIds.includes(activeProfile.id);
@@ -51,7 +55,7 @@ export const DatabaseExplorer: React.FC<DatabaseExplorerProps> = ({
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [expandedTable, setExpandedTable] = useState<string | null>(null);
-  const [columnsMap, setColumnsMap] = useState<Record<string, TableColumn[]>>({});
+  const [columnsMap, setColumnsMap] = useState<Record<string, TableColumn[]>>(initialColumnsMap || {});
 
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; table: DbTable } | null>(null);
@@ -60,14 +64,26 @@ export const DatabaseExplorer: React.FC<DatabaseExplorerProps> = ({
   const [filterModalTable, setFilterModalTable] = useState<DbTable | null>(null);
   const [tableFilterRules, setTableFilterRules] = useState<Record<string, { rules: FilterRule[]; matchAny: boolean }>>({});
 
+  // Sync with initialColumnsMap when provided
+  useEffect(() => {
+    if (initialColumnsMap && Object.keys(initialColumnsMap).length > 0) {
+      setColumnsMap((prev) => ({ ...prev, ...initialColumnsMap }));
+    }
+  }, [initialColumnsMap]);
+
   const loadTables = async () => {
     if (!activeProfile || !isConnected) return;
     setLoading(true);
     try {
-      const res = await window.electronAPI.getTables(activeProfile.id);
+      const [res, allCols] = await Promise.all([
+        window.electronAPI.getTables(activeProfile.id),
+        window.electronAPI.getAllColumns(activeProfile.id).catch(() => ({})),
+      ]);
       setTables(res);
+      const mergedCols = { ...columnsMap, ...(allCols || {}) };
+      setColumnsMap(mergedCols);
       if (onSchemaUpdate) {
-        onSchemaUpdate(res, columnsMap);
+        onSchemaUpdate(res, mergedCols);
       }
     } catch (err: any) {
       showToast(err.message || 'Failed to load tables', 'danger');
@@ -122,7 +138,12 @@ export const DatabaseExplorer: React.FC<DatabaseExplorerProps> = ({
   const filtered = tables.filter((t) => t.name.toLowerCase().includes(search.toLowerCase()));
 
   return (
-    <div className="w-80 h-full flex flex-col bg-studio-sidebar border-l border-border shrink-0 select-none animate-slide-right">
+    <div
+      style={{ width: width ? `${width}px` : undefined }}
+      className={`h-full flex flex-col bg-studio-sidebar border-l border-border shrink-0 select-none ${
+        width ? '' : 'w-80'
+      }`}
+    >
       {/* Explorer Header */}
       <div className="h-11 px-3.5 flex items-center justify-between border-b border-border bg-card/40 shrink-0">
         <div className="flex items-center gap-2 text-xs font-semibold text-foreground">

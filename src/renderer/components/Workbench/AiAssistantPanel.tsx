@@ -27,6 +27,8 @@ interface AiAssistantPanelProps {
   onInsertSql: (sql: string) => void;
   onExecuteSql: (sql: string) => void;
   onClose: () => void;
+  width?: number;
+  onRefreshSchema?: () => void;
 }
 
 const SUGGESTIONS = [
@@ -43,11 +45,16 @@ export const AiAssistantPanel: React.FC<AiAssistantPanelProps> = ({
   onInsertSql,
   onExecuteSql,
   onClose,
+  width,
+  onRefreshSchema,
 }) => {
   const { settings, updateSettings, showToast } = useStudio();
   const [prompt, setPrompt] = useState('');
   const [loading, setLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Total grounded columns count
+  const totalGroundedColumns = Object.values(columnsMap).reduce((acc, cols) => acc + cols.length, 0);
 
   // Conversational message history
   const [messages, setMessages] = useState<AiMessage[]>([]);
@@ -71,10 +78,13 @@ export const AiAssistantPanel: React.FC<AiAssistantPanelProps> = ({
     return tables
       .map((t) => {
         const cols = columnsMap[t.name] || [];
-        const colDefs = cols
-          .map((c) => `${c.name} ${c.typeName}${c.primaryKey ? ' (PK)' : ''}${c.nullable ? '' : ' NOT NULL'}`)
-          .join(', ');
-        return `TABLE "${t.name}" (${colDefs || 'columns unknown'});`;
+        const colDefs =
+          cols.length > 0
+            ? cols
+                .map((c) => `${c.name} ${c.typeName}${c.primaryKey ? ' (PRIMARY KEY)' : ''}${c.nullable ? '' : ' NOT NULL'}`)
+                .join(', ')
+            : 'columns unknown';
+        return `TABLE "${t.name}" (${colDefs});`;
       })
       .join('\n');
   };
@@ -130,7 +140,12 @@ export const AiAssistantPanel: React.FC<AiAssistantPanelProps> = ({
   };
 
   return (
-    <div className="w-96 h-full flex flex-col bg-studio-sidebar border-l border-border shrink-0 select-none animate-slide-right z-20">
+    <div
+      style={{ width: width ? `${width}px` : undefined }}
+      className={`h-full flex flex-col bg-studio-sidebar border-l border-border shrink-0 select-none z-20 ${
+        width ? '' : 'w-96'
+      }`}
+    >
       {/* Header */}
       <div className="h-11 px-3.5 flex items-center justify-between border-b border-border bg-card/60 backdrop-blur-xs shrink-0">
         <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
@@ -172,6 +187,25 @@ export const AiAssistantPanel: React.FC<AiAssistantPanelProps> = ({
             <X className="w-3.5 h-3.5" />
           </Button>
         </div>
+      </div>
+
+      {/* Schema Grounding Status Bar */}
+      <div className="px-3.5 py-1.5 bg-muted/30 border-b border-border flex items-center justify-between text-[11px] text-muted-foreground select-none shrink-0">
+        <div className="flex items-center gap-1.5 truncate">
+          <Database className="w-3.5 h-3.5 text-primary shrink-0" />
+          <span className="truncate">
+            {tables.length} tables &bull; {totalGroundedColumns} columns grounded
+          </span>
+        </div>
+        {onRefreshSchema && (
+          <button
+            onClick={onRefreshSchema}
+            title="Sync schema metadata with database"
+            className="text-[10px] text-primary hover:underline cursor-pointer font-medium ml-2 shrink-0"
+          >
+            Sync
+          </button>
+        )}
       </div>
 
       {/* Privacy & Schema Grounding Banner */}
