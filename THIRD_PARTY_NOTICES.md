@@ -17,6 +17,7 @@ Main direct dependencies:
 | [react-resizable-panels](https://github.com/bvaughn/react-resizable-panels) | Panel layout | MIT |
 | [cmdk](https://github.com/pacocoursey/cmdk) | Command palette | MIT |
 | [sql-formatter](https://github.com/sql-formatter-org/sql-formatter) | SQL formatting | MIT |
+| [react-markdown](https://github.com/remarkjs/react-markdown), [remark-gfm](https://github.com/remarkjs/remark-gfm) | Rendering AI replies | MIT |
 | [Lucide](https://github.com/lucide-icons/lucide) | Icons | ISC |
 | [class-variance-authority](https://github.com/joe-bell/cva) | Component styling | Apache-2.0 |
 | [Tailwind CSS](https://github.com/tailwindlabs/tailwindcss), [tailwind-merge](https://github.com/dcastil/tailwind-merge), [clsx](https://github.com/lukeed/clsx) | Styling | MIT |

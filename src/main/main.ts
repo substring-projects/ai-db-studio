@@ -1,5 +1,5 @@
 import electron from 'electron';
-const { app, BrowserWindow, ipcMain, Menu } = electron;
+const { app, BrowserWindow, ipcMain, Menu, shell } = electron;
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -96,6 +96,21 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
     },
+  });
+
+  // Links can come from AI replies, so the app window never navigates and new windows never open.
+  // Web links go to the system browser; every other kind of address is dropped.
+  const openExternally = (url: string) => {
+    if (/^(https?:|mailto:)/i.test(url)) shell.openExternal(url);
+  };
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    openExternally(url);
+    return { action: 'deny' };
+  });
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (url === mainWindow?.webContents.getURL()) return;
+    event.preventDefault();
+    openExternally(url);
   });
 
   if (process.env.VITE_DEV_SERVER_URL) {

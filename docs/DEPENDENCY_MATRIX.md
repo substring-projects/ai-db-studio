@@ -10,6 +10,7 @@
 | Monaco Editor, sql-formatter | SQL editing |
 | TanStack Table and Virtual | Results grid |
 | react-resizable-panels, cmdk | Layout and command palette |
+| react-markdown, remark-gfm | Rendering AI replies |
 | pg, mysql2 | Database drivers |
 | LangChain (`@langchain/core`, `@langchain/openai`, `@langchain/ollama`), Zod | AI assistant |
 
