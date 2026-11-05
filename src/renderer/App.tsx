@@ -8,10 +8,31 @@ import { SettingsView } from './components/Settings/SettingsView';
 import { ToastContainer } from './components/ToastContainer';
 
 const AppContent: React.FC = () => {
-  const { activeView } = useStudio();
+  const { activeView, setActiveView } = useStudio();
+
+  // Global keyboard shortcuts for navigation (⌘1 / ⌘2 / ⌘3)
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey) {
+        if (e.key === '1') {
+          e.preventDefault();
+          setActiveView('workbench');
+        } else if (e.key === '2') {
+          e.preventDefault();
+          setActiveView('connections');
+        } else if (e.key === '3') {
+          e.preventDefault();
+          setActiveView('settings');
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [setActiveView]);
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-studio-bg text-studio-text">
+    <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
       {/* Primary Sidebar */}
       <Sidebar />
 

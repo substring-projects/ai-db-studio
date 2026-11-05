@@ -515,7 +515,7 @@ export class ConnectionManager {
       const res = await session.pgPool!.query(sql, params);
       const executionTimeMs = Math.round(performance.now() - start);
 
-      if (!res.fields) {
+      if (!res.fields || res.fields.length === 0) {
         return {
           columns: ['Affected Rows'],
           rows: [[res.rowCount ?? 0]],

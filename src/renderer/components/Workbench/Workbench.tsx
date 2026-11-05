@@ -98,6 +98,9 @@ export const Workbench: React.FC = () => {
     initialValue: any;
     pkColumn?: string;
     pkValue?: any;
+    rowColumns?: string[];
+    rowData?: any[];
+    engine?: string;
   } | null>(null);
 
   // History state
@@ -160,7 +163,6 @@ export const Workbench: React.FC = () => {
 
       // 2. Execute query
       const res = await window.electronAPI.executeQuery(activeProfile.id, statement, overrideToken);
-      setResults(res);
 
       // 3. Log to history
       await window.electronAPI.addHistory({
@@ -172,7 +174,10 @@ export const Workbench: React.FC = () => {
       loadHistory();
 
       if (refreshTableAfter && currentTable) {
-        handleSelectTableData(currentTable, lastFilterRules.rules, lastFilterRules.matchAny);
+        await handleSelectTableData(currentTable, lastFilterRules.rules, lastFilterRules.matchAny);
+        showToast('Table data updated successfully', 'success');
+      } else {
+        setResults(res);
       }
     } catch (err: any) {
       setError(err.message || 'Execution error');
@@ -284,12 +289,12 @@ export const Workbench: React.FC = () => {
   const handleEditCell = (column: string, value: any, rowIndex: number, row: any[]) => {
     if (!currentTable) return;
 
-    // Detect PK column
+    // Detect PK column (case-insensitive)
     const pkCol = currentTableColumns.find((c) => c.primaryKey);
     let pkValue: any = undefined;
 
     if (pkCol && results) {
-      const pkIdx = results.columns.indexOf(pkCol.name);
+      const pkIdx = results.columns.findIndex((c) => c.toLowerCase() === pkCol.name.toLowerCase());
       if (pkIdx >= 0) {
         pkValue = row[pkIdx];
       }
@@ -301,6 +306,9 @@ export const Workbench: React.FC = () => {
       initialValue: value,
       pkColumn: pkCol?.name,
       pkValue,
+      rowColumns: results?.columns,
+      rowData: row,
+      engine: activeProfile?.engine,
     });
   };
 
@@ -308,27 +316,34 @@ export const Workbench: React.FC = () => {
   const handleDeleteRow = (rowIndex: number, row: any[]) => {
     if (!currentTable || !results) return;
 
+    const isPg = activeProfile?.engine === 'POSTGRESQL';
+    const quote = (id: string) => (isPg ? `"${id.replace(/"/g, '""')}"` : `\`${id.replace(/`/g, '``')}\``);
+
     const pkCol = currentTableColumns.find((c) => c.primaryKey);
     let whereClause = '';
 
     if (pkCol) {
-      const pkIdx = results.columns.indexOf(pkCol.name);
-      const pkVal = row[pkIdx];
-      whereClause = `WHERE "${pkCol.name}" = '${String(pkVal).replace(/'/g, "''")}'`;
-    } else {
-      // Fallback matching all non-null columns
+      const pkIdx = results.columns.findIndex((c) => c.toLowerCase() === pkCol.name.toLowerCase());
+      if (pkIdx >= 0) {
+        const pkVal = row[pkIdx];
+        whereClause = `WHERE ${quote(pkCol.name)} = '${String(pkVal).replace(/'/g, "''")}'`;
+      }
+    }
+
+    if (!whereClause) {
+      // Fallback matching row columns
       const conditions = results.columns
         .map((col, idx) => {
           const val = row[idx];
-          if (val === null || val === undefined) return `"${col}" IS NULL`;
-          return `"${col}" = '${String(val).replace(/'/g, "''")}'`;
+          if (val === null || val === undefined) return `${quote(col)} IS NULL`;
+          return `${quote(col)} = '${String(val).replace(/'/g, "''")}'`;
         })
-        .slice(0, 3)
+        .slice(0, 5)
         .join(' AND ');
-      whereClause = `WHERE ${conditions} LIMIT 1`;
+      whereClause = `WHERE ${conditions}`;
     }
 
-    const deleteSql = `DELETE FROM "${currentTable.name}" ${whereClause};`;
+    const deleteSql = `DELETE FROM ${quote(currentTable.name)} ${whereClause};`;
 
     openDangerModal({
       title: 'Delete Row?',
@@ -684,6 +699,7 @@ export const Workbench: React.FC = () => {
         <InsertRowModal
           tableName={currentTable.name}
           columns={currentTableColumns}
+          engine={activeProfile?.engine}
           onInsert={(sql) => execute(sql, undefined, true)}
           onClose={() => setInsertModalOpen(false)}
         />
@@ -697,6 +713,9 @@ export const Workbench: React.FC = () => {
           initialValue={editCellState.initialValue}
           pkColumn={editCellState.pkColumn}
           pkValue={editCellState.pkValue}
+          rowColumns={editCellState.rowColumns}
+          rowData={editCellState.rowData}
+          engine={editCellState.engine}
           onSave={(sql) => execute(sql, undefined, true)}
           onClose={() => setEditCellState(null)}
         />

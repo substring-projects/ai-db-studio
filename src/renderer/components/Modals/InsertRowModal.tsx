@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { PlusCircle, X } from 'lucide-react';
 import { TableColumn } from '../../../shared/types';
+import { Button } from '../ui/button';
 
 interface InsertRowModalProps {
   tableName: string;
   columns: TableColumn[];
+  engine?: string;
   onInsert: (sql: string) => void;
   onClose: () => void;
 }
@@ -12,11 +14,15 @@ interface InsertRowModalProps {
 export const InsertRowModal: React.FC<InsertRowModalProps> = ({
   tableName,
   columns,
+  engine,
   onInsert,
   onClose,
 }) => {
   const [values, setValues] = useState<Record<string, string>>({});
   const [nullFlags, setNullFlags] = useState<Record<string, boolean>>({});
+
+  const isPg = engine === 'POSTGRESQL';
+  const quote = (id: string) => (isPg ? `"${id.replace(/"/g, '""')}"` : `\`${id.replace(/`/g, '``')}\``);
 
   const handleValueChange = (colName: string, val: string) => {
     setValues((prev) => ({ ...prev, [colName]: val }));
@@ -37,11 +43,10 @@ export const InsertRowModal: React.FC<InsertRowModalProps> = ({
       const val = values[col.name];
 
       if (isNull) {
-        colsToInsert.push(`"${col.name}"`);
+        colsToInsert.push(quote(col.name));
         valsToInsert.push('NULL');
       } else if (val !== undefined && val.trim() !== '') {
-        colsToInsert.push(`"${col.name}"`);
-        // Escaping single quotes
+        colsToInsert.push(quote(col.name));
         const escaped = val.replace(/'/g, "''");
         valsToInsert.push(`'${escaped}'`);
       }
@@ -52,7 +57,7 @@ export const InsertRowModal: React.FC<InsertRowModalProps> = ({
       return;
     }
 
-    const sql = `INSERT INTO "${tableName}" (${colsToInsert.join(', ')}) VALUES (${valsToInsert.join(', ')});`;
+    const sql = `INSERT INTO ${quote(tableName)} (${colsToInsert.join(', ')}) VALUES (${valsToInsert.join(', ')});`;
     onInsert(sql);
     onClose();
   };
@@ -63,7 +68,7 @@ export const InsertRowModal: React.FC<InsertRowModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-studio-border bg-studio-surface/50 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+            <div className="w-9 h-9 rounded-lg bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-500 shrink-0">
               <PlusCircle className="w-5 h-5" />
             </div>
             <div>
@@ -99,7 +104,7 @@ export const InsertRowModal: React.FC<InsertRowModalProps> = ({
                       {col.typeName}
                     </span>
                     {col.primaryKey && (
-                      <span className="px-1 py-0.2 rounded text-[9px] bg-amber-500/15 text-amber-400">
+                      <span className="px-1 py-0.2 rounded text-[9px] bg-amber-500/15 text-amber-500">
                         PK
                       </span>
                     )}
@@ -131,19 +136,21 @@ export const InsertRowModal: React.FC<InsertRowModalProps> = ({
           })}
 
           <div className="pt-2 flex items-center justify-end gap-2">
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-medium text-studio-muted hover:text-studio-text hover:bg-accent rounded-lg transition-colors cursor-pointer"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
-              className="px-4 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 rounded-lg shadow-sm transition-all cursor-pointer"
+              variant="accent"
+              size="sm"
             >
               Review & Insert
-            </button>
+            </Button>
           </div>
         </form>
       </div>

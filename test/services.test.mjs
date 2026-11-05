@@ -47,6 +47,34 @@ function buildFilterWhereClause(rules, matchAny = false) {
   return ` WHERE ${operatorClauses.join(joiner)}`;
 }
 
+// Test UPDATE statement building logic
+function buildUpdateStatement({ tableName, columnName, value, isNull, pkColumn, pkValue, rowColumns, rowData, engine }) {
+  const isPg = engine === 'POSTGRESQL';
+  const quote = (id) => (isPg ? `"${id.replace(/"/g, '""')}"` : `\`${id.replace(/`/g, '``')}\``);
+
+  const valSnippet = isNull ? 'NULL' : `'${String(value).replace(/'/g, "''")}'`;
+
+  let whereClause = '';
+  if (pkColumn && pkValue !== undefined && pkValue !== null) {
+    whereClause = `WHERE ${quote(pkColumn)} = '${String(pkValue).replace(/'/g, "''")}'`;
+  } else if (rowColumns && rowData && rowColumns.length > 0) {
+    const conditions = rowColumns
+      .map((col, idx) => {
+        const val = rowData[idx];
+        if (val === null || val === undefined) {
+          return `${quote(col)} IS NULL`;
+        }
+        return `${quote(col)} = '${String(val).replace(/'/g, "''")}'`;
+      })
+      .slice(0, 5);
+    whereClause = `WHERE ${conditions.join(' AND ')}`;
+  } else {
+    whereClause = `WHERE ${quote(columnName)} IS NULL`;
+  }
+
+  return `UPDATE ${quote(tableName)} SET ${quote(columnName)} = ${valSnippet} ${whereClause};`;
+}
+
 test('builds single filter rule correctly', () => {
   const where = buildFilterWhereClause([{ column: 'status', operator: 'EQUALS', value: 'active' }]);
   assert.strictEqual(where, ` WHERE "status" = 'active'`);
@@ -77,6 +105,45 @@ test('prevents SQL injection in filter values', () => {
   const malicious = "admin'; DROP TABLE users; --";
   const where = buildFilterWhereClause([{ column: 'name', operator: 'EQUALS', value: malicious }]);
   assert.strictEqual(where, ` WHERE "name" = 'admin''; DROP TABLE users; --'`);
+});
+
+test('builds UPDATE statement with PK column for PostgreSQL and MySQL', () => {
+  const pgSql = buildUpdateStatement({
+    tableName: 'users',
+    columnName: 'name',
+    value: "O'Connor",
+    isNull: false,
+    pkColumn: 'id',
+    pkValue: 42,
+    engine: 'POSTGRESQL',
+  });
+  assert.strictEqual(pgSql, `UPDATE "users" SET "name" = 'O''Connor' WHERE "id" = '42';`);
+
+  const mySql = buildUpdateStatement({
+    tableName: 'users',
+    columnName: 'name',
+    value: "Alice",
+    isNull: false,
+    pkColumn: 'id',
+    pkValue: 1,
+    engine: 'MYSQL',
+  });
+  assert.strictEqual(mySql, "UPDATE `users` SET `name` = 'Alice' WHERE `id` = '1';");
+});
+
+test('builds UPDATE statement with NULL value and row fallback without PK', () => {
+  const sql = buildUpdateStatement({
+    tableName: 'items',
+    columnName: 'description',
+    value: '',
+    isNull: true,
+    pkColumn: undefined,
+    pkValue: undefined,
+    rowColumns: ['sku', 'price', 'category'],
+    rowData: ['SKU-101', 29.99, null],
+    engine: 'POSTGRESQL',
+  });
+  assert.strictEqual(sql, `UPDATE "items" SET "description" = NULL WHERE "sku" = 'SKU-101' AND "price" = '29.99' AND "category" IS NULL;`);
 });
 
 test('persists workspace settings with theme switching', () => {
