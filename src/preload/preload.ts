@@ -1,6 +1,8 @@
 import electron from 'electron';
 const { contextBridge, ipcRenderer, clipboard } = electron;
 import {
+  AiChatRequest,
+  AiEvent,
   ConnectionProfile,
   FilterRule,
   SqlDraft,
@@ -84,14 +86,19 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke("settings:save", s),
 
   // AI Assistant
-  askAi: (prompt: string, schemaContext: string, settings: WorkspaceSettings, history?: any[], requestId?: string) =>
-    ipcRenderer.invoke("ai:ask", prompt, schemaContext, settings, history, requestId),
-  cancelAi: (requestId: string) => ipcRenderer.invoke("ai:cancel", requestId),
-  onAiChunk: (listener: (requestId: string, delta: string) => void) => {
-    const handler = (_: unknown, requestId: string, delta: string) => listener(requestId, delta);
-    ipcRenderer.on("ai:chunk", handler);
-    return () => ipcRenderer.removeListener("ai:chunk", handler);
+  aiChat: (request: AiChatRequest) => ipcRenderer.invoke("ai:chat", request),
+  onAiEvent: (listener: (requestId: string, event: AiEvent) => void) => {
+    const handler = (_: unknown, requestId: string, event: AiEvent) => listener(requestId, event);
+    ipcRenderer.on("ai:event", handler);
+    return () => ipcRenderer.removeListener("ai:event", handler);
   },
+  cancelAi: (requestId: string) => ipcRenderer.invoke("ai:cancel", requestId),
+  reviewAiQuery: (requestId: string, queryId: string, approved: boolean) =>
+    ipcRenderer.invoke("ai:review", requestId, queryId, approved),
+  cancelAiQuery: (requestId: string, queryId: string) =>
+    ipcRenderer.invoke("ai:cancel-query", requestId, queryId),
+  forgetAiMemory: (conversationId: string, fromTurnId?: string) =>
+    ipcRenderer.invoke("ai:forget", conversationId, fromTurnId),
 
   // Clipboard
   copyToClipboard: async (text: string) => {

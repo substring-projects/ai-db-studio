@@ -88,6 +88,7 @@ const DEFAULT_SETTINGS: WorkspaceSettings = {
   aiProvider: 'ollama',
   aiEndpoint: 'http://localhost:11434',
   aiModel: 'codellama',
+  aiShareResults: false,
 };
 
 const DRAFT_SAVE_DELAY_MS = 500;

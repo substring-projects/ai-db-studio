@@ -163,7 +163,9 @@ npm run dist:all
 ```
 
 > [!IMPORTANT]
-> **Data Privacy Commitment**: AI DB Studio **never** transmits row records, query results, or cell contents to any AI endpoint. Only table schemas, column names, data types, and primary key constraints are utilized to construct grounding context.
+> **Data Privacy Commitment**: By default AI DB Studio does not send row records, query results, or cell contents to any AI endpoint. The model receives schemas, column names, data types and primary key constraints, plus the row count and column names of each result. Sending result samples is an explicit opt-in setting ("Let the model read query results"), off until you turn it on.
+>
+> **Query Safety**: Read queries that pass a strict check run automatically inside a read-only transaction. Any statement that could change data waits for you to approve it in the chat, and the approval covers only that exact statement on that connection.
 
 ### Setting Up Local Ollama (Offline Mode)
 1. Install [Ollama](https://ollama.com/).

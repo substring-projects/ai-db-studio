@@ -264,8 +264,12 @@ export const DatabaseExplorer: React.FC = () => {
 
   /** Schemas and groups default to open, so their state is stored as an explicit "closed" flag. */
   const isDefaultOpen = (node: Node) => node.kind === 'schema' || node.kind === 'group';
-  const isOpen = (node: Node) =>
-    isDefaultOpen(node) ? Boolean(query) || !expanded.has(`${node.id}:closed`) : expanded.has(node.id);
+  const isOpen = (node: Node) => {
+    if (isDefaultOpen(node)) return Boolean(query) || !expanded.has(`${node.id}:closed`);
+    // A connection remembered as open from last session has nothing to show until it reconnects.
+    if (node.kind === 'connection' && (connectionStates[node.profile.id]?.state ?? 'offline') === 'offline') return false;
+    return expanded.has(node.id);
+  };
   const isExpandable = (node: Node) =>
     node.kind === 'connection' || node.kind === 'schema' || node.kind === 'group' || node.kind === 'table' || (node.kind === 'section' && !node.leaf);
 

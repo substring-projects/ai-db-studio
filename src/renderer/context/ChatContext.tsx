@@ -1,27 +1,43 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { AiMessage, QueryResult } from '../../shared/types';
+import { AiEvent, QueryResult } from '../../shared/types';
 import { cleanError, useStudio } from './StudioContext';
 import { useSchema } from './SchemaContext';
 import { useWorkspace } from './WorkspaceContext';
 import { buildSchemaContext } from '../lib/sql';
 import { createId, formatCount, formatDuration, prefs } from '../lib/utils';
 
-export interface SqlExecution {
-  status: 'idle' | 'running' | 'success' | 'error' | 'blocked' | 'cancelled';
-  runId?: string;
+export type QueryStatus = 'idle' | 'review' | 'running' | 'success' | 'error' | 'declined' | 'cancelled';
+
+export interface QueryPart {
+  type: 'query';
+  id: string;
+  sql: string;
+  /** Passed the strict read-only check, so it could run without a person. */
+  readOnly: boolean;
+  /** Why the check did not pass. */
+  reason?: string;
+  status: QueryStatus;
   profileId?: string;
   error?: string;
   durationMs?: number;
   rowCount?: number;
   columnCount?: number;
-  /** Rows stay in memory on this device: never persisted and never sent to the model. */
+  isCommand?: boolean;
+  /** Rows stay in memory on this device and are never persisted. */
   result?: QueryResult;
 }
 
-export interface ChatMessage extends AiMessage {
+export type MessagePart = { type: 'text'; text: string } | QueryPart;
+
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  /** The message's text, for copying and earlier messages. */
+  content: string;
+  parts: MessagePart[];
+  timestamp: number;
   status: 'streaming' | 'done' | 'error' | 'stopped';
   requestId?: string;
-  execution?: SqlExecution;
 }
 
 export interface Conversation {
@@ -43,8 +59,9 @@ interface ChatContextType {
   ask: (conversationId: string, text: string) => Promise<void>;
   regenerate: (conversationId: string, messageId: string) => void;
   stop: (conversationId: string) => void;
-  runMessageSql: (conversationId: string, messageId: string) => Promise<void>;
-  cancelMessageSql: (conversationId: string, messageId: string) => void;
+  reviewQuery: (conversationId: string, messageId: string, queryId: string, approved: boolean) => void;
+  rerunQuery: (conversationId: string, messageId: string, queryId: string) => Promise<void>;
+  cancelQuery: (conversationId: string, messageId: string, queryId: string) => void;
   autoRun: boolean;
   setAutoRun: (value: boolean) => void;
 }
@@ -61,27 +78,53 @@ function serialize(conversations: Conversation[]): Conversation[] {
     .slice(0, MAX_CONVERSATIONS)
     .map((c) => ({
       ...c,
-      messages: c.messages.map(({ execution, requestId, ...m }) => ({
+      messages: c.messages.map(({ requestId, ...m }) => ({
         ...m,
         status: m.status === 'streaming' ? ('stopped' as const) : m.status,
-        execution: execution && {
-          status: execution.status === 'running' ? ('idle' as const) : execution.status,
-          error: execution.error,
-          durationMs: execution.durationMs,
-          rowCount: execution.rowCount,
-          columnCount: execution.columnCount,
-          profileId: execution.profileId,
-        },
+        parts: m.parts.map((part) => {
+          if (part.type === 'text') return part;
+          const { result, ...rest } = part;
+          // A statement mid-review or mid-run cannot resume after a restart.
+          const interrupted = part.status === 'running' || part.status === 'review';
+          return { ...rest, status: interrupted ? ('idle' as const) : part.status };
+        }),
       })),
     }));
 }
 
-export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { profiles, activeProfile, connectedProfileIds, settings, showToast } = useStudio();
-  const { schemas } = useSchema();
-  const { openChat, appendLog, addHistory, tabs } = useWorkspace();
+/** Conversations saved by earlier versions kept one query per message, in other fields. */
+function migrate(saved: any[]): Conversation[] {
+  return saved.map((c) => ({
+    ...c,
+    messages: (c.messages ?? []).map((m: any) => {
+      if (m.parts) return m;
+      const parts: MessagePart[] = [];
+      if (m.content) parts.push({ type: 'text', text: m.content });
+      if (m.sql) {
+        parts.push({
+          type: 'query',
+          id: createId('query'),
+          sql: m.sql,
+          readOnly: m.execution?.status !== 'blocked',
+          status: m.execution?.status === 'blocked' ? 'declined' : m.execution?.status ?? 'idle',
+          profileId: m.execution?.profileId,
+          error: m.execution?.error,
+          durationMs: m.execution?.durationMs,
+          rowCount: m.execution?.rowCount,
+          columnCount: m.execution?.columnCount,
+        });
+      }
+      return { ...m, parts };
+    }),
+  }));
+}
 
-  const [conversations, setConversationsState] = useState<Conversation[]>(() => prefs.get(STORAGE_KEY, []));
+export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { profiles, activeProfile, showToast } = useStudio();
+  const { schemas, loadSchema } = useSchema();
+  const { openChat, appendLog, addHistory, tabs, activeTab } = useWorkspace();
+
+  const [conversations, setConversationsState] = useState<Conversation[]>(() => migrate(prefs.get<any[]>(STORAGE_KEY, [])));
   const [autoRun, setAutoRunState] = useState<boolean>(() => prefs.get('studio:ai:autoRun', true));
   const setAutoRun = useCallback((value: boolean) => {
     setAutoRunState(value);
@@ -97,12 +140,12 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const schemasRef = useRef(schemas);
   schemasRef.current = schemas;
-  const settingsRef = useRef(settings);
-  settingsRef.current = settings;
-  const connectedRef = useRef(connectedProfileIds);
-  connectedRef.current = connectedProfileIds;
   const autoRunRef = useRef(autoRun);
   autoRunRef.current = autoRun;
+  const profilesRef = useRef(profiles);
+  profilesRef.current = profiles;
+  const activeTabRef = useRef(activeTab);
+  activeTabRef.current = activeTab;
 
   // Persist quietly; a burst of stream chunks collapses into one write.
   useEffect(() => {
@@ -147,24 +190,112 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [patchConversation]
   );
 
-  useEffect(
-    () =>
-      window.electronAPI.onAiChunk((requestId, delta) => {
-        setConversations((prev) =>
-          prev.map((c) =>
-            c.messages.some((m) => m.requestId === requestId)
-              ? {
-                  ...c,
-                  messages: c.messages.map((m) =>
-                    m.requestId === requestId ? { ...m, content: m.content + delta } : m
-                  ),
-                }
-              : c
-          )
-        );
-      }),
-    [setConversations]
+  const patchQuery = useCallback(
+    (conversationId: string, messageId: string, queryId: string, patch: Partial<QueryPart>) => {
+      patchMessage(conversationId, messageId, (m) => ({
+        ...m,
+        parts: m.parts.map((part) => (part.type === 'query' && part.id === queryId ? { ...part, ...patch } : part)),
+      }));
+    },
+    [patchMessage]
   );
+
+  // Which message each in-flight request is writing to.
+  const requests = useRef(
+    new Map<string, { conversationId: string; messageId: string; profileId: string | null; onDone: () => void }>()
+  );
+
+  const applyEvent = useCallback(
+    (requestId: string, event: AiEvent) => {
+      const target = requests.current.get(requestId);
+      if (!target) return;
+      const { conversationId, messageId, profileId } = target;
+      const conversation = conversationsRef.current.find((c) => c.id === conversationId);
+      const message = conversation?.messages.find((m) => m.id === messageId);
+      const profile = profilesRef.current.find((p) => p.id === profileId);
+
+      switch (event.type) {
+        case 'text':
+          patchMessage(conversationId, messageId, (m) => {
+            const last = m.parts[m.parts.length - 1];
+            const parts: MessagePart[] =
+              last?.type === 'text'
+                ? [...m.parts.slice(0, -1), { type: 'text', text: last.text + event.delta }]
+                : [...m.parts, { type: 'text', text: event.delta }];
+            return { ...m, content: m.content + event.delta, parts };
+          });
+          break;
+        case 'query-start':
+          patchMessage(conversationId, messageId, (m) => ({
+            ...m,
+            parts: [
+              ...m.parts,
+              {
+                type: 'query',
+                id: event.id,
+                sql: event.sql,
+                readOnly: event.readOnly,
+                reason: event.reason,
+                status: event.needsReview ? 'review' : 'running',
+                profileId: profileId ?? undefined,
+              },
+            ],
+          }));
+          if (event.needsReview) {
+            const looking = activeTabRef.current?.kind === 'ai' && activeTabRef.current.conversationId === conversationId;
+            if (!looking) showToast('A statement from the AI assistant is waiting for your review.', 'warning');
+          }
+          break;
+        case 'query-approved':
+          patchQuery(conversationId, messageId, event.id, { status: 'running' });
+          break;
+        case 'query-declined': {
+          patchQuery(conversationId, messageId, event.id, { status: 'declined' });
+          const sql = message?.parts.find((p): p is QueryPart => p.type === 'query' && p.id === event.id)?.sql;
+          appendLog({ level: 'info', source: 'ai', sql, message: 'AI statement declined in review' });
+          break;
+        }
+        case 'query-cancelled':
+          patchQuery(conversationId, messageId, event.id, { status: 'cancelled' });
+          break;
+        case 'query-result': {
+          const { result } = event;
+          const sql = message?.parts.find((p): p is QueryPart => p.type === 'query' && p.id === event.id)?.sql ?? '';
+          const wasWrite = message?.parts.some((p) => p.type === 'query' && p.id === event.id && !p.readOnly);
+          patchQuery(conversationId, messageId, event.id, {
+            status: 'success',
+            result,
+            error: undefined,
+            durationMs: result.executionTimeMs,
+            rowCount: result.rowCount,
+            columnCount: result.columns.length,
+            isCommand: result.isCommand,
+          });
+          appendLog({
+            level: 'success',
+            source: 'ai',
+            sql,
+            message: `AI query: ${formatCount(result.rowCount)} rows in ${formatDuration(result.executionTimeMs)}`,
+          });
+          addHistory({ sql, durationMs: result.executionTimeMs, rowCount: result.rowCount, connectionName: profile?.name ?? 'AI assistant' });
+          if (wasWrite && profileId) loadSchema(profileId);
+          break;
+        }
+        case 'query-error': {
+          const sql = message?.parts.find((p): p is QueryPart => p.type === 'query' && p.id === event.id)?.sql;
+          patchQuery(conversationId, messageId, event.id, { status: 'error', error: event.error });
+          appendLog({ level: 'error', source: 'ai', sql, message: event.error });
+          break;
+        }
+        case 'done':
+          target.onDone();
+          break;
+      }
+    },
+    [addHistory, appendLog, loadSchema, patchMessage, patchQuery, showToast]
+  );
+
+  useEffect(() => window.electronAPI.onAiEvent(applyEvent), [applyEvent]);
 
   const openNewConversation = useCallback(() => {
     // Reuse an empty conversation rather than piling up blank ones.
@@ -183,7 +314,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [activeProfile?.id, openChat, setConversations]);
 
   const deleteConversation = useCallback(
-    (id: string) => setConversations((prev) => prev.filter((c) => c.id !== id)),
+    (id: string) => {
+      window.electronAPI.forgetAiMemory(id).catch(() => undefined);
+      setConversations((prev) => prev.filter((c) => c.id !== id));
+    },
     [setConversations]
   );
   const renameConversation = useCallback(
@@ -195,146 +329,74 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [patchConversation]
   );
   const clearConversation = useCallback(
-    (id: string) => patchConversation(id, (c) => ({ ...c, messages: [], title: 'New conversation' })),
+    (id: string) => {
+      window.electronAPI.forgetAiMemory(id).catch(() => undefined);
+      patchConversation(id, (c) => ({ ...c, messages: [], title: 'New conversation' }));
+    },
     [patchConversation]
   );
 
-  const runMessageSql = useCallback(
-    async (conversationId: string, messageId: string) => {
-      const conversation = conversationsRef.current.find((c) => c.id === conversationId);
-      const message = conversation?.messages.find((m) => m.id === messageId);
-      const profileId = conversation?.profileId;
-      if (!message?.sql || !profileId) return;
-      if (!connectedRef.current.includes(profileId)) {
-        showToast('Connect to the database to run this query.', 'warning');
-        return;
-      }
-      const profile = profiles.find((p) => p.id === profileId);
-      const runId = createId('run');
-      const sql = message.sql;
-      patchMessage(conversationId, messageId, (m) => ({
-        ...m,
-        execution: { status: 'running', runId, profileId },
-      }));
-
-      try {
-        // Only this read-only path is ever used for AI SQL. It accepts no approval token.
-        const result = await window.electronAPI.executeReadOnlyQuery(profileId, sql, runId);
-        patchMessage(conversationId, messageId, (m) =>
-          m.execution?.runId === runId && m.execution.status === 'running'
-            ? {
-                ...m,
-                execution: {
-                  status: 'success',
-                  profileId,
-                  result,
-                  durationMs: result.executionTimeMs,
-                  rowCount: result.rowCount,
-                  columnCount: result.columns.length,
-                },
-              }
-            : m
-        );
-        appendLog({
-          level: 'success',
-          source: 'ai',
-          sql,
-          message: `AI query: ${formatCount(result.rowCount)} rows in ${formatDuration(result.executionTimeMs)}`,
-        });
-        addHistory({
-          sql,
-          durationMs: result.executionTimeMs,
-          rowCount: result.rowCount,
-          connectionName: profile?.name ?? 'AI assistant',
-        });
-      } catch (err) {
-        const text = cleanError(err, 'Query failed');
-        const blocked = text.startsWith('Blocked:');
-        patchMessage(conversationId, messageId, (m) =>
-          m.execution?.runId === runId && m.execution.status === 'running'
-            ? { ...m, execution: { status: blocked ? 'blocked' : 'error', profileId, error: text } }
-            : m
-        );
-        appendLog({ level: blocked ? 'warning' : 'error', source: 'ai', sql, message: text });
-      }
-    },
-    [addHistory, appendLog, patchMessage, profiles, showToast]
-  );
-
-  const cancelMessageSql = useCallback(
-    (conversationId: string, messageId: string) => {
-      const conversation = conversationsRef.current.find((c) => c.id === conversationId);
-      const execution = conversation?.messages.find((m) => m.id === messageId)?.execution;
-      if (execution?.status !== 'running' || !execution.profileId) return;
-      patchMessage(conversationId, messageId, (m) => ({
-        ...m,
-        execution: { ...m.execution!, status: 'cancelled' },
-      }));
-      window.electronAPI.cancelQuery(execution.profileId, execution.runId).catch(() => undefined);
-    },
-    [patchMessage]
-  );
-
   const requestReply = useCallback(
-    async (conversationId: string, text: string, priorMessages: ChatMessage[]) => {
+    async (conversationId: string, turnId: string, text: string, priorMessages: ChatMessage[]) => {
       const conversation = conversationsRef.current.find((c) => c.id === conversationId);
       const profileId = conversation?.profileId ?? null;
-      const profile = profiles.find((p) => p.id === profileId);
+      const profile = profilesRef.current.find((p) => p.id === profileId);
       const schema = profileId ? schemasRef.current[profileId] : undefined;
       const requestId = createId('ai');
       const replyId = createId('msg');
 
+      // Events and the call's reply travel separately, and the reply can arrive first.
+      // 'done' is always the last event, so it marks when every event has been applied.
+      let onDone = () => {};
+      const allEventsApplied = new Promise<void>((resolve) => {
+        onDone = resolve;
+      });
+      requests.current.set(requestId, { conversationId, messageId: replyId, profileId, onDone });
       patchConversation(conversationId, (c) => ({
         ...c,
         updatedAt: Date.now(),
         messages: [
           ...c.messages,
-          { id: replyId, role: 'assistant', content: '', timestamp: Date.now(), status: 'streaming', requestId },
+          { id: replyId, role: 'assistant', content: '', parts: [], timestamp: Date.now(), status: 'streaming', requestId },
         ],
       }));
 
+      const settle = (patch: Partial<ChatMessage>) =>
+        patchMessage(conversationId, replyId, (m) => ({
+          ...(m.status === 'streaming' ? { ...m, ...patch } : m),
+          requestId: undefined,
+          // Nothing can answer once the request is over, so no statement may stay live.
+          parts: (m.status === 'streaming' && patch.parts ? patch.parts : m.parts).map((part) =>
+            part.type === 'query' && (part.status === 'running' || part.status === 'review')
+              ? { ...part, status: 'cancelled' as const }
+              : part
+          ),
+        }));
+
       try {
-        const context = schema ? buildSchemaContext(profile?.engine, schema.tables, schema.columns) : '';
-        // Only the words of the conversation are sent. Results and rows never are.
-        const history = priorMessages
-          .filter((m) => m.status === 'done' || m.role === 'user')
-          .map((m) => ({ role: m.role, content: m.content }));
-        const res = await window.electronAPI.askAi(text, context, settingsRef.current, history, requestId);
-
-        const current = conversationsRef.current
-          .find((c) => c.id === conversationId)
-          ?.messages.find((m) => m.id === replyId);
-        if (!current || current.status === 'stopped') return;
-
-        patchMessage(conversationId, replyId, (m) => ({
-          ...m,
-          content: res.content,
-          sql: res.sql,
-          status: 'done',
-          requestId: undefined,
-          execution: res.sql ? { status: 'idle' } : undefined,
-        }));
-
-        if (res.sql && autoRunRef.current && profileId && connectedRef.current.includes(profileId)) {
-          await runMessageSql(conversationId, replyId);
-        }
+        await window.electronAPI.aiChat({
+          requestId,
+          conversationId,
+          turnId,
+          prompt: text,
+          profileId,
+          schemaContext: schema ? buildSchemaContext(profile?.engine, schema.tables, schema.columns) : '',
+          autoRun: autoRunRef.current,
+          seedHistory: priorMessages
+            .filter((m) => m.status === 'done')
+            .map((m) => ({ role: m.role, content: m.content })),
+        });
+        await allEventsApplied;
+        settle({ status: 'done' });
       } catch (err) {
-        const current = conversationsRef.current
-          .find((c) => c.id === conversationId)
-          ?.messages.find((m) => m.id === replyId);
-        // Stop already settled the message; the abort surfacing here is not an error.
-        if (!current || current.status === 'stopped') return;
         const message = cleanError(err, 'The AI request failed.');
-        patchMessage(conversationId, replyId, (m) => ({
-          ...m,
-          content: message,
-          status: 'error',
-          requestId: undefined,
-        }));
+        settle({ status: 'error', content: message, parts: [{ type: 'text', text: message }] });
         appendLog({ level: 'error', source: 'ai', message });
+      } finally {
+        requests.current.delete(requestId);
       }
     },
-    [appendLog, patchConversation, patchMessage, profiles, runMessageSql]
+    [appendLog, patchConversation, patchMessage]
   );
 
   const ask = useCallback(
@@ -345,6 +407,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         id: createId('msg'),
         role: 'user',
         content: text,
+        parts: [{ type: 'text', text }],
         timestamp: Date.now(),
         status: 'done',
       };
@@ -355,21 +418,22 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updatedAt: Date.now(),
         messages: [...c.messages, userMessage],
       }));
-      await requestReply(conversationId, text, prior);
+      await requestReply(conversationId, userMessage.id, text, prior);
     },
     [patchConversation, requestReply]
   );
 
   const regenerate = useCallback(
-    (conversationId: string, messageId: string) => {
+    async (conversationId: string, messageId: string) => {
       const conversation = conversationsRef.current.find((c) => c.id === conversationId);
       if (!conversation) return;
       const index = conversation.messages.findIndex((m) => m.id === messageId);
       const question = conversation.messages.slice(0, index).reverse().find((m) => m.role === 'user');
       if (!question) return;
       const questionIndex = conversation.messages.indexOf(question);
+      await window.electronAPI.forgetAiMemory(conversationId, question.id).catch(() => undefined);
       patchConversation(conversationId, (c) => ({ ...c, messages: c.messages.slice(0, questionIndex + 1) }));
-      requestReply(conversationId, question.content, conversation.messages.slice(0, questionIndex));
+      requestReply(conversationId, question.id, question.content, conversation.messages.slice(0, questionIndex));
     },
     [patchConversation, requestReply]
   );
@@ -385,6 +449,54 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [patchMessage]
   );
 
+  const reviewQuery = useCallback(
+    (conversationId: string, messageId: string, queryId: string, approved: boolean) => {
+      const message = conversationsRef.current.find((c) => c.id === conversationId)?.messages.find((m) => m.id === messageId);
+      if (message?.requestId) window.electronAPI.reviewAiQuery(message.requestId, queryId, approved).catch(() => undefined);
+    },
+    []
+  );
+
+  /** Runs a finished read query again. Only statements that passed the read-only check qualify. */
+  const rerunQuery = useCallback(
+    async (conversationId: string, messageId: string, queryId: string) => {
+      const conversation = conversationsRef.current.find((c) => c.id === conversationId);
+      const part = conversation?.messages
+        .find((m) => m.id === messageId)
+        ?.parts.find((p): p is QueryPart => p.type === 'query' && p.id === queryId);
+      const profileId = conversation?.profileId;
+      if (!part?.readOnly || !profileId) return;
+      patchQuery(conversationId, messageId, queryId, { status: 'running', error: undefined, profileId });
+      try {
+        const result = await window.electronAPI.executeReadOnlyQuery(profileId, part.sql, queryId);
+        patchQuery(conversationId, messageId, queryId, {
+          status: 'success',
+          result,
+          durationMs: result.executionTimeMs,
+          rowCount: result.rowCount,
+          columnCount: result.columns.length,
+        });
+      } catch (err) {
+        patchQuery(conversationId, messageId, queryId, { status: 'error', error: cleanError(err, 'Query failed') });
+      }
+    },
+    [patchQuery]
+  );
+
+  const cancelQuery = useCallback(
+    (conversationId: string, messageId: string, queryId: string) => {
+      const conversation = conversationsRef.current.find((c) => c.id === conversationId);
+      const message = conversation?.messages.find((m) => m.id === messageId);
+      patchQuery(conversationId, messageId, queryId, { status: 'cancelled' });
+      if (message?.requestId) {
+        window.electronAPI.cancelAiQuery(message.requestId, queryId).catch(() => undefined);
+      } else if (conversation?.profileId) {
+        window.electronAPI.cancelQuery(conversation.profileId, queryId).catch(() => undefined);
+      }
+    },
+    [patchQuery]
+  );
+
   const value = useMemo<ChatContextType>(
     () => ({
       conversations,
@@ -396,8 +508,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ask,
       regenerate,
       stop,
-      runMessageSql,
-      cancelMessageSql,
+      reviewQuery,
+      rerunQuery,
+      cancelQuery,
       autoRun,
       setAutoRun,
     }),
@@ -411,8 +524,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ask,
       regenerate,
       stop,
-      runMessageSql,
-      cancelMessageSql,
+      reviewQuery,
+      rerunQuery,
+      cancelQuery,
       autoRun,
       setAutoRun,
     ]

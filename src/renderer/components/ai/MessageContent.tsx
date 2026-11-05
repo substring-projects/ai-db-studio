@@ -90,21 +90,13 @@ const Inline: React.FC<{ text: string }> = ({ text }) => {
 };
 
 /**
- * Renders assistant text. The generated query is shown by the SQL block below the message,
- * so its fenced copy in the text is removed once the reply has finished.
+ * Renders assistant text. Statements that were submitted appear in their own SQL blocks,
+ * so a fenced copy of one in the text is left out.
  */
-export const MessageContent: React.FC<{ content: string; hideSql?: string }> = ({ content, hideSql }) => {
+export const MessageContent: React.FC<{ content: string; hideSql?: string[] }> = ({ content, hideSql }) => {
   const blocks = useMemo(() => {
-    const all = parseBlocks(content);
-    if (!hideSql) return all;
-    let removed = false;
-    return all.filter((block) => {
-      if (!removed && block.type === 'code' && block.code.trim() === hideSql.trim()) {
-        removed = true;
-        return false;
-      }
-      return true;
-    });
+    const hidden = new Set(hideSql?.map((sql) => sql.trim()));
+    return parseBlocks(content).filter((block) => !(block.type === 'code' && hidden.has(block.code.trim())));
   }, [content, hideSql]);
 
   return (

@@ -104,6 +104,14 @@ export class ConnectionManager {
     return { success: true };
   }
 
+  public isConnected(profileId: string): boolean {
+    return this.sessions.has(profileId);
+  }
+
+  public getProfile(profileId: string): ConnectionProfile | undefined {
+    return this.sessions.get(profileId)?.profile;
+  }
+
   public async disconnect(profileId: string): Promise<void> {
     const session = this.sessions.get(profileId);
     if (!session) return;
@@ -760,18 +768,24 @@ export class ConnectionManager {
       if (!record || record.expiresAt < Date.now()) {
         throw new Error('Approval token is invalid or expired. Please confirm execution again.');
       }
-      // Single-use token: burn it immediately
+      // Single-use token: burn it immediately, whether or not it turns out to match.
+      const proposal = this.proposals.get(record.proposalId);
       this.approvalTokens.delete(approvalToken);
       this.proposals.delete(record.proposalId);
+      // An approval covers the exact statement and connection that were reviewed, nothing else.
+      if (!proposal || proposal.sql !== sql || proposal.profile.id !== profileId) {
+        throw new Error('This approval was for a different statement. Please confirm execution again.');
+      }
     }
 
     return this.rawExecute(session, sql, [], { runId, maxRows: MANUAL_ROW_CAP });
   }
 
   /**
-   * Runs AI-generated SQL. There is no approval path here on purpose: the statement must
-   * pass the strict read-only gate, and it then runs inside a read-only transaction, so
-   * the database itself refuses any write the gate failed to recognise.
+   * Runs AI-generated SQL without a person. There is no approval path here on purpose: the
+   * statement must pass the strict read-only gate, and it then runs inside a read-only
+   * transaction, so the database itself refuses any write the gate failed to recognise.
+   * Anything else has to go through a person's review and executeQuery's approval token.
    */
   public async executeReadOnly(profileId: string, sql: string, runId?: string): Promise<QueryResult> {
     const session = this.sessions.get(profileId);

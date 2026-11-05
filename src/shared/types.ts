@@ -142,6 +142,8 @@ export interface WorkspaceSettings {
   aiEndpoint: string;
   aiModel: string;
   aiApiKey?: string;
+  /** Lets the AI model read query result rows. Off unless the user turns it on. */
+  aiShareResults?: boolean;
 }
 
 export interface AiMessage {
@@ -151,6 +153,30 @@ export interface AiMessage {
   sql?: string;
   timestamp: number;
 }
+
+export interface AiChatRequest {
+  requestId: string;
+  conversationId: string;
+  /** Id of the user message that starts this turn. */
+  turnId: string;
+  prompt: string;
+  profileId: string | null;
+  schemaContext: string;
+  /** Run safe read queries without asking. */
+  autoRun: boolean;
+  /** Earlier messages, used once for conversations that predate stored memory. */
+  seedHistory?: { role: 'user' | 'assistant'; content: string }[];
+}
+
+export type AiEvent =
+  | { type: 'text'; delta: string }
+  | { type: 'query-start'; id: string; sql: string; readOnly: boolean; reason?: string; needsReview: boolean }
+  | { type: 'query-approved'; id: string }
+  | { type: 'query-declined'; id: string }
+  | { type: 'query-cancelled'; id: string }
+  | { type: 'query-result'; id: string; result: QueryResult }
+  | { type: 'query-error'; id: string; error: string }
+  | { type: 'done' };
 
 export interface ElectronAPI {
   // Profiles
@@ -210,16 +236,15 @@ export interface ElectronAPI {
   getSettings: () => Promise<WorkspaceSettings>;
   saveSettings: (settings: Partial<WorkspaceSettings>) => Promise<WorkspaceSettings>;
 
-  // AI Assistant (Schema-grounded, zero row data transmitted)
-  askAi: (
-    prompt: string,
-    schemaContext: string,
-    settings: WorkspaceSettings,
-    history?: { role: 'user' | 'assistant'; content: string }[],
-    requestId?: string
-  ) => Promise<{ content: string; sql?: string }>;
+  // AI Assistant
+  aiChat: (request: AiChatRequest) => Promise<void>;
+  onAiEvent: (listener: (requestId: string, event: AiEvent) => void) => () => void;
   cancelAi: (requestId: string) => Promise<void>;
-  onAiChunk: (listener: (requestId: string, delta: string) => void) => () => void;
+  /** A person's decision on a statement waiting for review. */
+  reviewAiQuery: (requestId: string, queryId: string, approved: boolean) => Promise<void>;
+  cancelAiQuery: (requestId: string, queryId: string) => Promise<void>;
+  /** Clears a conversation's memory, or just the part from one turn onward. */
+  forgetAiMemory: (conversationId: string, fromTurnId?: string) => Promise<void>;
 
   // Clipboard
   copyToClipboard: (text: string) => Promise<void>;

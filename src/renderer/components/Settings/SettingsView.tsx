@@ -4,8 +4,10 @@ import { useStudio } from '../../context/StudioContext';
 import { useWorkspace } from '../../context/WorkspaceContext';
 import { cn } from '../../lib/utils';
 import { Button } from '../ui/button';
-import { Input, Label } from '../ui/input';
+import { Checkbox, Input, Label } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+
+const SHARED_ROWS = 50;
 
 const Section: React.FC<React.PropsWithChildren<{ title: string; description?: string }>> = ({ title, description, children }) => (
   <section className="grid grid-cols-[180px_minmax(0,1fr)] gap-6 border-t border-border py-5 first:border-t-0">
@@ -119,11 +121,26 @@ export const SettingsView: React.FC = () => {
               <Input id="ai-key" type="password" value={aiApiKey} onChange={(e) => setAiApiKey(e.target.value)} className="font-mono" />
             </div>
           )}
+          <label className="flex cursor-pointer items-start gap-2 text-xs">
+            <Checkbox
+              className="mt-0.5"
+              checked={Boolean(settings.aiShareResults)}
+              onChange={(e) => updateSettings({ aiShareResults: e.target.checked })}
+            />
+            <span>
+              Let the model read query results
+              <span className="mt-0.5 block text-xxs leading-4 text-muted-foreground">
+                Sends up to {SHARED_ROWS} rows of each result to {aiEndpoint || 'the endpoint above'} so answers can quote real values.
+                Leave this off if your data must not reach this endpoint.
+              </span>
+            </span>
+          </label>
           <div className="flex items-start gap-2 rounded-sm bg-muted p-2.5 text-xxs leading-4 text-muted-foreground">
             <ShieldCheck className="mt-px size-3.5 shrink-0" />
             <span>
-              The model receives your question, earlier messages in the conversation, and table and column names with their types.
-              Result rows are never sent. AI-generated SQL can only run read-only; writes must be run by hand in the SQL editor.
+              The model receives your question, the conversation so far, and table and column names with their types
+              {settings.aiShareResults ? ', plus samples of query results' : '. It sees the row count and column names of results, not the rows'}.
+              Safe read queries run automatically in a read-only transaction. Anything that can change data waits for you to approve it in the chat.
             </span>
           </div>
         </Section>

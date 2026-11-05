@@ -24,11 +24,12 @@ import { SqlBlock } from './SqlBlock';
 
 const Assistant: React.FC<{ conversationId: string; message: ChatMessage; isLast: boolean }> = ({ conversationId, message, isLast }) => {
   const { regenerate } = useChat();
-  const waiting = message.status === 'streaming' && !message.content;
   const streaming = message.status === 'streaming';
-  const summary = message.execution?.status === 'success' && message.execution.rowCount !== undefined
-    ? `Returned ${formatCount(message.execution.rowCount)} ${message.execution.rowCount === 1 ? 'row' : 'rows'} across ${message.execution.columnCount} ${message.execution.columnCount === 1 ? 'column' : 'columns'}.`
-    : null;
+  const waiting = streaming && message.parts.length === 0;
+  const lastPart = message.parts[message.parts.length - 1];
+  // Between a finished query and the next words, show that the assistant is still working.
+  const thinking = streaming && lastPart?.type === 'query' && lastPart.status !== 'review' && lastPart.status !== 'running';
+  const sqlShownInBlocks = message.parts.flatMap((p) => (p.type === 'query' ? [p.sql] : []));
 
   return (
     <div className="group/message flex gap-2.5" aria-busy={streaming}>
@@ -53,11 +54,22 @@ const Assistant: React.FC<{ conversationId: string; message: ChatMessage; isLast
             </div>
           </div>
         ) : (
-          <MessageContent content={message.content} hideSql={message.sql} />
+          <div className="space-y-2">
+            {message.parts.map((part, i) =>
+              part.type === 'text' ? (
+                <MessageContent key={i} content={part.text} hideSql={sqlShownInBlocks} />
+              ) : (
+                <SqlBlock key={part.id} conversationId={conversationId} messageId={message.id} query={part} />
+              )
+            )}
+          </div>
+        )}
+        {thinking && (
+          <div aria-label="Reading the result" className="mt-2 space-y-2">
+            <Skeleton className="h-2.5 w-2/5" />
+          </div>
         )}
         {message.status === 'stopped' && <p className="mt-1 text-xxs text-muted-foreground">Stopped</p>}
-        {message.sql && message.status === 'done' && <SqlBlock conversationId={conversationId} message={message} />}
-        {summary && <p className="mt-1.5 text-xs text-muted-foreground">{summary}</p>}
         {!streaming && message.status !== 'error' && message.content && (
           <div className={cn('mt-1 flex items-center gap-0.5 transition-opacity duration-75', isLast ? '' : 'opacity-0 focus-within:opacity-100 group-hover/message:opacity-100')}>
             <CopyButton text={message.content} label="Copy message" />
@@ -112,12 +124,11 @@ export const AiChatView: React.FC<{ conversationId: string; active: boolean }> =
   // Follow new content only while the reader is already at the bottom.
   const scrollerRef = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
-  const lastContent = messages[messages.length - 1]?.content;
-  const lastStatus = messages[messages.length - 1]?.execution?.status;
+  const lastParts = messages[messages.length - 1]?.parts;
   useEffect(() => {
     const el = scrollerRef.current;
     if (el && pinned.current) el.scrollTop = el.scrollHeight;
-  }, [messages.length, lastContent, lastStatus]);
+  }, [messages.length, lastParts]);
 
   const suggestions = useMemo(() => {
     const tables = [...new Set(schema?.tables.filter((t) => t.type === 'TABLE').map((t) => t.name))];
@@ -185,7 +196,13 @@ export const AiChatView: React.FC<{ conversationId: string; active: boolean }> =
               <DropdownMenuItem onSelect={() => openSingleton('settings')}>Model settings…</DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuCheckboxItem checked={autoRun} onCheckedChange={(v) => setAutoRun(Boolean(v))}>
-                Run read-only queries automatically
+                Run safe read queries automatically
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={Boolean(settings.aiShareResults)}
+                onCheckedChange={(v) => updateSettings({ aiShareResults: Boolean(v) })}
+              >
+                Let the model read query results
               </DropdownMenuCheckboxItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -196,7 +213,8 @@ export const AiChatView: React.FC<{ conversationId: string; active: boolean }> =
 
   const privacyNote = (
     <p className="mt-1.5 text-center text-2xs text-muted-foreground">
-      {composerHint()}. The model sees your schema, never your rows. Queries run read-only.
+      {composerHint()}. Safe reads run automatically; changes wait for your review.{' '}
+      {settings.aiShareResults ? 'The model can read query results.' : 'The model sees your schema, not your rows.'}
     </p>
   );
 
@@ -210,7 +228,7 @@ export const AiChatView: React.FC<{ conversationId: string; active: boolean }> =
             </h1>
             <p className="mb-3 mt-0.5 text-xs text-muted-foreground">
               {connected && schema?.status === 'ready'
-                ? `I can see ${formatCount(schema.tables.length)} tables and views. Answers run as read-only queries, and the results appear here.`
+                ? `I can see ${formatCount(schema.tables.length)} tables and views. I run safe read queries on my own, and ask you before anything that changes data.`
                 : 'Connect a database so answers use your real tables and columns.'}
             </p>
             {composer}

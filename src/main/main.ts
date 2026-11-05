@@ -5,15 +5,15 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { StorageService } from './services/StorageService';
 import { ConnectionManager } from './services/ConnectionManager';
-import { AiService } from './services/AiService';
-import { ConnectionProfile, FilterRule, SqlDraft, WorkspaceSettings } from '../shared/types';
+import { ChatAgentService } from './services/ai/ChatAgentService';
+import { AiChatRequest, ConnectionProfile, FilterRule, SqlDraft, WorkspaceSettings } from '../shared/types';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 let mainWindow: BrowserWindow | null = null;
 const storage = new StorageService();
 const connections = new ConnectionManager();
-const aiRequests = new Map<string, AbortController>();
+let chatAgent: ChatAgentService;
 
 const WINDOW_THEME = {
   dark: { background: '#111318', symbols: '#98A1AD' },
@@ -105,6 +105,7 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  chatAgent = new ChatAgentService(connections, () => storage.getSettings(), path.join(app.getPath('userData'), 'ai-memory.json'));
   setupIpc();
   setupMenu();
   createWindow();
@@ -164,28 +165,19 @@ function setupIpc() {
     connections.executeReadOnly(id, sql, runId)
   );
   ipcMain.handle('query:explain', (_, id: string, sql: string) => connections.explainQuery(id, sql));
-  ipcMain.handle(
-    'ai:ask',
-    async (event, prompt: string, schema: string, settings: WorkspaceSettings, history?: any[], requestId?: string) => {
-      if (!requestId) return AiService.ask(prompt, schema, settings, history);
-
-      const controller = new AbortController();
-      aiRequests.set(requestId, controller);
-      try {
-        return await AiService.ask(prompt, schema, settings, history, {
-          signal: controller.signal,
-          onDelta: (delta) => {
-            if (!event.sender.isDestroyed()) event.sender.send('ai:chunk', requestId, delta);
-          },
-        });
-      } finally {
-        aiRequests.delete(requestId);
-      }
-    }
+  ipcMain.handle('ai:chat', (event, request: AiChatRequest) =>
+    chatAgent.chat(request, (update) => {
+      if (!event.sender.isDestroyed()) event.sender.send('ai:event', request.requestId, update);
+    })
   );
-  ipcMain.handle('ai:cancel', (_, requestId: string) => {
-    aiRequests.get(requestId)?.abort();
-  });
+  ipcMain.handle('ai:cancel', (_, requestId: string) => chatAgent.cancel(requestId));
+  ipcMain.handle('ai:review', (_, requestId: string, queryId: string, approved: boolean) =>
+    chatAgent.review(requestId, queryId, approved === true)
+  );
+  ipcMain.handle('ai:cancel-query', (_, requestId: string, queryId: string) => chatAgent.cancelQuery(requestId, queryId));
+  ipcMain.handle('ai:forget', (_, conversationId: string, fromTurnId?: string) =>
+    chatAgent.forget(conversationId, fromTurnId)
+  );
   ipcMain.handle('query:cancel', (_, id: string, runId?: string) => connections.cancelQuery(id, runId));
 
   // Window

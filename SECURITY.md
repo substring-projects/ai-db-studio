@@ -16,6 +16,6 @@ Do not post credentials, database contents, or exploit details in public issues.
 
 ## Required execution boundaries
 
-The implementation plan supersedes the older read-only-manual assumption: a future manual executor may accept writes only with fresh, expiring, single-use approval bound to the exact SQL and connection. AI execution must use a separate read-only interface, credential context, dialect validator and executor. Manual write services must never be exposed as model tools. These are release requirements, not claims about completed functionality.
+Writes may run only with fresh, expiring, single-use approval bound to the exact SQL and connection. AI-proposed statements follow two separate routes. Those that pass the strict read-only check run in a read-only transaction without a person. Anything else pauses for review: the main process holds the statement, and only a decision from the review card can release it. The model can propose statements but holds no write capability and cannot approve its own. Database content returned to the model is treated as untrusted, because it could contain instructions.
 
-Cloud prompts may include only approved schema and user questions/context; never returned rows or credentials. Future test transports must verify this boundary independently of model instructions.
+Prompts include schema, user questions and conversation context, and never credentials. Returned rows are excluded unless the user turns on "Let the model read query results", which sends a capped sample of each result. Stored conversation memory never contains rows, whichever setting is used.

@@ -19,6 +19,7 @@ const DEFAULT_SETTINGS: WorkspaceSettings = {
   aiProvider: 'ollama',
   aiEndpoint: 'http://localhost:11434',
   aiModel: 'codellama',
+  aiShareResults: false,
 };
 
 export class StorageService {
