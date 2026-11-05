@@ -71,8 +71,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke("settings:save", s),
 
   // AI Assistant
-  askAi: (prompt: string, schemaContext: string, settings: WorkspaceSettings) =>
-    ipcRenderer.invoke("ai:ask", prompt, schemaContext, settings),
+  askAi: (prompt: string, schemaContext: string, settings: WorkspaceSettings, history?: any[]) =>
+    ipcRenderer.invoke("ai:ask", prompt, schemaContext, settings, history),
 
   // Clipboard
   copyToClipboard: async (text: string) => {

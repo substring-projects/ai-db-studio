@@ -1,7 +1,25 @@
-import React, { useState } from 'react';
-import { Bot, Send, Sparkles, CornerDownLeft, Play, X, Shield, Loader2, ArrowRight } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  Bot,
+  Send,
+  Sparkles,
+  Play,
+  X,
+  Shield,
+  Loader2,
+  ArrowRight,
+  Copy,
+  Check,
+  Trash2,
+  HelpCircle,
+  Database,
+  Cpu,
+} from 'lucide-react';
 import { useStudio } from '../../context/StudioContext';
-import { DbTable, TableColumn } from '../../../shared/types';
+import { DbTable, TableColumn, AiMessage } from '../../../shared/types';
+import { Button } from '../ui/button';
+import { Badge } from '../ui/badge';
+import { cn } from '../../lib/utils';
 
 interface AiAssistantPanelProps {
   tables: DbTable[];
@@ -11,6 +29,14 @@ interface AiAssistantPanelProps {
   onClose: () => void;
 }
 
+const SUGGESTIONS = [
+  'Show table row counts',
+  'Find top 10 most recent records',
+  'List tables with their primary keys',
+  'Identify tables with foreign keys',
+  'Write an aggregation query',
+];
+
 export const AiAssistantPanel: React.FC<AiAssistantPanelProps> = ({
   tables,
   columnsMap,
@@ -18,142 +44,298 @@ export const AiAssistantPanel: React.FC<AiAssistantPanelProps> = ({
   onExecuteSql,
   onClose,
 }) => {
-  const { settings, showToast } = useStudio();
+  const { settings, updateSettings, showToast } = useStudio();
   const [prompt, setPrompt] = useState('');
   const [loading, setLoading] = useState(false);
-  const [response, setResponse] = useState<{ content: string; sql?: string } | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // Build grounded schema string (Strictly table & column names, ZERO row data)
+  // Conversational message history
+  const [messages, setMessages] = useState<AiMessage[]>([]);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-scroll on new message
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages, loading]);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  // Grounded schema generator
   const buildSchemaContext = (): string => {
+    if (tables.length === 0) return '';
     return tables
       .map((t) => {
         const cols = columnsMap[t.name] || [];
-        const colDefs = cols.map((c) => `${c.name} ${c.typeName}${c.primaryKey ? ' (PK)' : ''}`).join(', ');
-        return `TABLE ${t.name} (${colDefs || 'columns unknown'});`;
+        const colDefs = cols
+          .map((c) => `${c.name} ${c.typeName}${c.primaryKey ? ' (PK)' : ''}${c.nullable ? '' : ' NOT NULL'}`)
+          .join(', ');
+        return `TABLE "${t.name}" (${colDefs || 'columns unknown'});`;
       })
       .join('\n');
   };
 
-  const handleAsk = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!prompt.trim() || loading) return;
+  const handleAsk = async (textToSend?: string) => {
+    const text = (textToSend || prompt).trim();
+    if (!text || loading) return;
 
+    const userMsg: AiMessage = {
+      id: 'msg-' + Date.now(),
+      role: 'user',
+      content: text,
+      timestamp: Date.now(),
+    };
+
+    setMessages((prev) => [...prev, userMsg]);
+    setPrompt('');
     setLoading(true);
-    setResponse(null);
 
     try {
       const schema = buildSchemaContext();
-      const res = await window.electronAPI.askAi(prompt.trim(), schema, settings);
-      setResponse(res);
+      const history = messages.map((m) => ({ role: m.role, content: m.content }));
+      const res = await window.electronAPI.askAi(text, schema, settings, history);
+
+      const aiMsg: AiMessage = {
+        id: 'msg-' + (Date.now() + 1),
+        role: 'assistant',
+        content: res.content,
+        sql: res.sql,
+        timestamp: Date.now(),
+      };
+
+      setMessages((prev) => [...prev, aiMsg]);
     } catch (err: any) {
       showToast(err.message || 'AI request failed', 'danger');
+      const errorMsg: AiMessage = {
+        id: 'msg-' + (Date.now() + 1),
+        role: 'assistant',
+        content: `⚠️ ${err.message || 'Failed to generate response. Please check your AI endpoint settings.'}`,
+        timestamp: Date.now(),
+      };
+      setMessages((prev) => [...prev, errorMsg]);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleCopySql = (sql: string, id: string) => {
+    window.electronAPI.copyToClipboard(sql);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 1500);
+    showToast('SQL copied to clipboard', 'info');
+  };
+
   return (
-    <div className="w-88 h-full flex flex-col bg-studio-sidebar border-l border-studio-border shrink-0 select-none animate-slide-right">
+    <div className="w-96 h-full flex flex-col bg-studio-sidebar border-l border-border shrink-0 select-none animate-slide-right z-20">
       {/* Header */}
-      <div className="h-11 px-4 flex items-center justify-between border-b border-studio-border bg-studio-surface/40 shrink-0">
-        <div className="flex items-center gap-2 text-xs font-semibold text-studio-text">
-          <Sparkles className="w-4 h-4 text-purple-400" />
+      <div className="h-11 px-3.5 flex items-center justify-between border-b border-border bg-card/60 backdrop-blur-xs shrink-0">
+        <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
+          <Sparkles className="w-4 h-4 text-purple-500 animate-pulse" />
           <span>AI SQL Copilot</span>
         </div>
+
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-purple-500/15 text-purple-300 border border-purple-500/20">
-            {settings.aiProvider === 'ollama' ? 'Ollama' : 'OpenAI'}
-          </span>
-          <button
+          {/* Quick Provider Badge / Switcher */}
+          <select
+            value={settings.aiProvider || 'ollama'}
+            onChange={(e) => updateSettings({ aiProvider: e.target.value as any })}
+            className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted/70 text-foreground border border-border cursor-pointer focus:outline-none"
+            title="Switch AI Provider"
+          >
+            <option value="ollama">Ollama</option>
+            <option value="openai">OpenAI</option>
+          </select>
+
+          {messages.length > 0 && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-muted-foreground hover:text-destructive"
+              onClick={() => setMessages([])}
+              title="Clear Conversation"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </Button>
+          )}
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-muted-foreground hover:text-foreground"
             onClick={onClose}
-            className="p-1 text-studio-muted hover:text-studio-text rounded hover:bg-white/5 cursor-pointer"
+            title="Close Copilot"
           >
             <X className="w-3.5 h-3.5" />
-          </button>
+          </Button>
         </div>
       </div>
 
-      {/* Privacy Badge */}
-      <div className="p-3 bg-purple-500/5 border-b border-purple-500/15 flex items-start gap-2 text-[11px] text-purple-300/80 leading-tight">
-        <Shield className="w-3.5 h-3.5 text-purple-400 shrink-0 mt-0.5" />
-        <span>Grounded on {tables.length} tables. Zero database row values are ever sent to AI.</span>
+      {/* Privacy & Schema Grounding Banner */}
+      <div className="px-3.5 py-2 bg-purple-500/10 border-b border-purple-500/20 flex items-center justify-between text-[11px] text-purple-700 dark:text-purple-300">
+        <div className="flex items-center gap-1.5 truncate">
+          <Shield className="w-3.5 h-3.5 text-purple-500 shrink-0" />
+          <span className="truncate">
+            Grounded on <strong className="font-semibold">{tables.length} tables</strong>
+          </span>
+        </div>
+        <span className="text-[9px] font-mono opacity-80 shrink-0 uppercase tracking-wider">
+          Zero Row Leakage
+        </span>
       </div>
 
-      {/* Conversation Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
-        {response ? (
-          <div className="space-y-3 animate-pop-in">
-            <div className="p-3 bg-studio-surface border border-studio-border rounded-xl space-y-2">
-              <div className="text-studio-text leading-relaxed whitespace-pre-wrap">{response.content}</div>
+      {/* Message Stream */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-3.5 space-y-4 text-xs">
+        {messages.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground space-y-3 p-4">
+            <div className="w-12 h-12 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-500 shadow-sm animate-badge-bounce">
+              <Bot className="w-6 h-6" />
+            </div>
 
-              {response.sql && (
-                <div className="space-y-2 pt-2 border-t border-studio-border">
-                  <pre className="p-3 bg-studio-editorBg text-studio-text rounded-lg border border-studio-border font-mono text-[11px] overflow-x-auto leading-relaxed">
-                    {response.sql}
-                  </pre>
+            <div className="space-y-1">
+              <h4 className="text-xs font-semibold text-foreground">Natural Language SQL Assistant</h4>
+              <p className="text-[11px] text-muted-foreground leading-relaxed max-w-[240px]">
+                Ask in plain English. Your database schema is used to generate exact queries.
+              </p>
+            </div>
 
-                  <div className="flex items-center gap-2 pt-1">
-                    <button
-                      onClick={() => {
-                        onInsertSql(response.sql!);
-                        showToast('Inserted into draft', 'info');
-                      }}
-                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-studio-bg hover:bg-white/5 text-studio-text border border-studio-border rounded-lg font-medium transition-colors cursor-pointer"
-                    >
-                      <ArrowRight className="w-3 h-3 text-studio-accent" />
-                      <span>Insert into Draft</span>
-                    </button>
-                    <button
-                      onClick={() => onExecuteSql(response.sql!)}
-                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-semibold shadow-xs transition-colors cursor-pointer"
-                    >
-                      <Play className="w-3 h-3 fill-current" />
-                      <span>Run SQL</span>
-                    </button>
-                  </div>
-                </div>
-              )}
+            {/* Quick Suggestion Chips */}
+            <div className="w-full pt-2 space-y-1.5 font-mono text-[11px]">
+              <span className="text-[10px] text-muted-foreground/70 uppercase tracking-wider block text-left px-1">
+                Suggested Prompts
+              </span>
+              {SUGGESTIONS.map((sug, i) => (
+                <button
+                  key={i}
+                  onClick={() => handleAsk(sug)}
+                  className="w-full text-left p-2 rounded-lg bg-card/60 hover:bg-accent border border-border text-foreground transition-all flex items-center justify-between group cursor-pointer"
+                >
+                  <span className="truncate">{sug}</span>
+                  <ArrowRight className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                </button>
+              ))}
             </div>
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center h-full text-center text-studio-muted space-y-2 p-6">
-            <Bot className="w-8 h-8 text-studio-muted/50" />
-            <p className="text-xs leading-relaxed">
-              Ask in natural language to generate SQL queries grounded strictly in your database schema.
-            </p>
-            <div className="pt-2 text-[11px] space-y-1.5 text-studio-accent/80 font-mono">
-              <button
-                onClick={() => setPrompt('Show all tables with their estimated row counts')}
-                className="w-full text-left p-1.5 rounded hover:bg-white/5 border border-dashed border-studio-border/50 truncate cursor-pointer"
+          messages.map((msg) => (
+            <div
+              key={msg.id}
+              className={cn(
+                'flex flex-col gap-1 animate-pop-in',
+                msg.role === 'user' ? 'items-end' : 'items-start'
+              )}
+            >
+              {/* Message Header */}
+              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-mono px-1">
+                {msg.role === 'user' ? (
+                  <span>You</span>
+                ) : (
+                  <span className="flex items-center gap-1 text-purple-600 dark:text-purple-400 font-semibold">
+                    <Sparkles className="w-2.5 h-2.5" />
+                    <span>Copilot</span>
+                  </span>
+                )}
+              </div>
+
+              {/* Message Bubble */}
+              <div
+                className={cn(
+                  'rounded-xl text-xs max-w-[92%]',
+                  msg.role === 'user'
+                    ? 'bg-primary text-primary-foreground px-3.5 py-2 shadow-sm'
+                    : 'bg-card border border-border p-3.5 shadow-xs w-full'
+                )}
               >
-                "Show all tables with row counts"
-              </button>
-              <button
-                onClick={() => setPrompt('Find the top 10 most recent records created')}
-                className="w-full text-left p-1.5 rounded hover:bg-white/5 border border-dashed border-studio-border/50 truncate cursor-pointer"
-              >
-                "Find the top 10 most recent records"
-              </button>
+                <div className="leading-relaxed whitespace-pre-wrap select-text">
+                  {msg.content}
+                </div>
+
+                {/* SQL Code Action Box if query was generated */}
+                {msg.sql && (
+                  <div className="mt-3 pt-3 border-t border-border space-y-2">
+                    <div className="flex items-center justify-between text-[10px] font-mono text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Database className="w-3 h-3 text-primary" />
+                        <span>Generated Query</span>
+                      </span>
+                      <button
+                        onClick={() => handleCopySql(msg.sql!, msg.id)}
+                        className="flex items-center gap-1 hover:text-foreground transition-colors cursor-pointer"
+                        title="Copy to clipboard"
+                      >
+                        {copiedId === msg.id ? (
+                          <Check className="w-3 h-3 text-emerald-500" />
+                        ) : (
+                          <Copy className="w-3 h-3" />
+                        )}
+                        <span>{copiedId === msg.id ? 'Copied' : 'Copy'}</span>
+                      </button>
+                    </div>
+
+                    <pre className="p-3 bg-studio-editorBg text-foreground rounded-lg border border-border font-mono text-[11px] overflow-x-auto leading-relaxed select-text">
+                      {msg.sql}
+                    </pre>
+
+                    <div className="flex items-center gap-2 pt-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 text-[11px] gap-1.5 h-7"
+                        onClick={() => {
+                          onInsertSql(msg.sql!);
+                          showToast('Query inserted into SQL draft', 'info');
+                        }}
+                      >
+                        <ArrowRight className="w-3 h-3 text-primary" />
+                        <span>Insert Draft</span>
+                      </Button>
+
+                      <Button
+                        variant="accent"
+                        size="sm"
+                        className="flex-1 text-[11px] gap-1.5 h-7 font-semibold"
+                        onClick={() => onExecuteSql(msg.sql!)}
+                      >
+                        <Play className="w-3 h-3 fill-current" />
+                        <span>Run SQL</span>
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
+          ))
+        )}
+
+        {/* Loading Indicator */}
+        {loading && (
+          <div className="flex items-center gap-2 p-3 bg-card border border-border rounded-xl text-xs text-muted-foreground animate-pop-in">
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-500" />
+            <span>Analyzing schema and synthesizing SQL…</span>
           </div>
         )}
       </div>
 
       {/* Input Form */}
-      <form onSubmit={handleAsk} className="p-3 border-t border-studio-border bg-studio-surface/50">
+      <form onSubmit={(e) => { e.preventDefault(); handleAsk(); }} className="p-3 border-t border-border bg-card/60 backdrop-blur-xs">
         <div className="relative flex items-center">
           <input
+            ref={inputRef}
             type="text"
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            placeholder="Ask AI to write SQL…"
+            placeholder="Ask in natural language (e.g. 'Show orders from today')…"
             disabled={loading}
-            className="w-full pl-3 pr-10 py-2 text-xs bg-studio-bg border border-studio-border rounded-lg text-studio-text placeholder-studio-muted focus:outline-none focus:border-purple-400 disabled:opacity-50"
+            className="w-full pl-3 pr-10 py-2 text-xs bg-background border border-input rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
           />
           <button
             type="submit"
             disabled={!prompt.trim() || loading}
-            className="absolute right-1.5 p-1.5 text-purple-400 hover:text-purple-300 disabled:opacity-40 transition-colors cursor-pointer"
+            className="absolute right-1.5 p-1.5 text-purple-500 hover:text-purple-400 disabled:opacity-30 transition-colors cursor-pointer"
+            title="Send Message"
           >
             {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
           </button>

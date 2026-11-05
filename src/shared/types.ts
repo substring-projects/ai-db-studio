@@ -178,7 +178,8 @@ export interface ElectronAPI {
   askAi: (
     prompt: string,
     schemaContext: string,
-    settings: WorkspaceSettings
+    settings: WorkspaceSettings,
+    history?: { role: 'user' | 'assistant'; content: string }[]
   ) => Promise<{ content: string; sql?: string }>;
 
   // Clipboard

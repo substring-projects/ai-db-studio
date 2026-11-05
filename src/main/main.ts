@@ -85,8 +85,8 @@ function setupIpc() {
     connections.executeQuery(id, sql, token)
   );
   ipcMain.handle('query:explain', (_, id: string, sql: string) => connections.explainQuery(id, sql));
-  ipcMain.handle('ai:ask', (_, prompt: string, schema: string, settings: WorkspaceSettings) =>
-    AiService.ask(prompt, schema, settings)
+  ipcMain.handle('ai:ask', (_, prompt: string, schema: string, settings: WorkspaceSettings, history?: any[]) =>
+    AiService.ask(prompt, schema, settings, history)
   );
   ipcMain.handle('query:cancel', () => {
     // Cancellation handler

@@ -168,3 +168,60 @@ test('persists workspace settings with theme switching', () => {
   // Cleanup
   fs.rmSync(tempDir, { recursive: true, force: true });
 });
+
+test('extracts SQL queries from various markdown formatting styles', () => {
+  function extractSql(content) {
+    const sqlMatch = content.match(/```sql\s*([\s\S]*?)\s*```/i);
+    if (sqlMatch && sqlMatch[1].trim()) return sqlMatch[1].trim();
+
+    const codeMatch = content.match(/```\s*([\s\S]*?)\s*```/);
+    if (codeMatch && codeMatch[1].trim()) {
+      const code = codeMatch[1].trim();
+      if (/\b(SELECT|WITH|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|SHOW|EXPLAIN)\b/i.test(code)) {
+        return code;
+      }
+    }
+
+    const rawSqlMatch = content.match(
+      /\b(SELECT[\s\S]+?;|WITH[\s\S]+?;|INSERT\s+INTO[\s\S]+?;|UPDATE[\s\S]+?;|DELETE\s+FROM[\s\S]+?;)/i
+    );
+    if (rawSqlMatch && rawSqlMatch[1].trim()) {
+      return rawSqlMatch[1].trim();
+    }
+    return undefined;
+  }
+
+  // 1. Standard ```sql
+  const text1 = "Here is the query:\n```sql\nSELECT * FROM orders WHERE status = 'delivered';\n```\nHope this helps!";
+  assert.strictEqual(extractSql(text1), "SELECT * FROM orders WHERE status = 'delivered';");
+
+  // 2. Generic ```
+  const text2 = "```\nSELECT id, name FROM users;\n```";
+  assert.strictEqual(extractSql(text2), "SELECT id, name FROM users;");
+
+  // 3. Raw statement
+  const text3 = "You can run SELECT count(*) FROM products; directly in your draft.";
+  assert.strictEqual(extractSql(text3), "SELECT count(*) FROM products;");
+});
+
+test('synthesizes grounded SQL from natural language prompts', () => {
+  const schema = 'TABLE users (id BIGINT (PK), email VARCHAR(255), created_at TIMESTAMP);\nTABLE orders (id BIGINT (PK), user_id BIGINT, total NUMERIC);';
+
+  function heuristicSql(prompt, schemaContext) {
+    const p = prompt.toLowerCase();
+    const tableMatches = [...schemaContext.matchAll(/TABLE\s+"?([a-zA-Z0-9_]+)"?/gi)].map((m) => m[1]);
+    const firstTable = tableMatches[0];
+    const matchedTable = tableMatches.find((t) => p.includes(t.toLowerCase())) || firstTable;
+
+    if (p.includes('count') || p.includes('how many')) {
+      return `SELECT COUNT(*) AS total_count FROM "${matchedTable}";`;
+    }
+    if (p.includes('recent') || p.includes('latest')) {
+      return `SELECT * FROM "${matchedTable}" ORDER BY 1 DESC LIMIT 25;`;
+    }
+    return `SELECT * FROM "${matchedTable}" LIMIT 50;`;
+  }
+
+  assert.strictEqual(heuristicSql('count all records in orders', schema), 'SELECT COUNT(*) AS total_count FROM "orders";');
+  assert.strictEqual(heuristicSql('show latest users', schema), 'SELECT * FROM "users" ORDER BY 1 DESC LIMIT 25;');
+});
