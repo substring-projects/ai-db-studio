@@ -7,10 +7,10 @@ import {
   Moon,
   Plus,
   Circle,
-  Sparkles,
 } from 'lucide-react';
 import { useStudio } from '../context/StudioContext';
 import { cn } from '../lib/utils';
+import logoImg from '../assets/logo.png';
 
 export const Sidebar: React.FC = () => {
   const {
@@ -25,6 +25,11 @@ export const Sidebar: React.FC = () => {
 
   const isConnected = activeProfile && connectedProfileIds.includes(activeProfile.id);
 
+  // Detect macOS to provide clearance for window traffic light controls
+  const isMac =
+    typeof window !== 'undefined' &&
+    (window.electronAPI?.platform === 'darwin' || navigator.userAgent.includes('Mac'));
+
   const navItems = [
     { id: 'workbench', label: 'Workbench', icon: Terminal, shortcut: '⌘1' },
     { id: 'connections', label: 'Connections', icon: Database, shortcut: '⌘2' },
@@ -32,13 +37,29 @@ export const Sidebar: React.FC = () => {
   ] as const;
 
   return (
-    <aside className="w-16 flex flex-col items-center justify-between py-3.5 bg-studio-sidebar border-r border-border shrink-0 select-none z-30 transition-colors">
+    <aside
+      className={cn(
+        'w-16 flex flex-col items-center justify-between pb-3.5 bg-studio-sidebar border-r border-border shrink-0 select-none z-30 transition-colors',
+        isMac ? 'pt-2' : 'pt-3.5'
+      )}
+    >
       {/* Top Group: Brand & Nav */}
-      <div className="flex flex-col items-center gap-5 w-full">
+      <div className="flex flex-col items-center gap-4 w-full">
+        {/* macOS Traffic Lights Clearance & Window Drag Region */}
+        {isMac && (
+          <div
+            className="h-8 w-full shrink-0 cursor-default"
+            style={{ WebkitAppRegion: 'drag' } as any}
+          />
+        )}
+
         {/* Brand Icon */}
-        <div className="relative group flex items-center justify-center">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-primary to-purple-500 text-white flex items-center justify-center shadow-md shadow-primary/25 transition-transform hover:scale-105 active:scale-95 cursor-pointer">
-            <Sparkles className="w-5 h-5 fill-white/20" />
+        <div
+          className="relative group flex items-center justify-center"
+          style={{ WebkitAppRegion: 'no-drag' } as any}
+        >
+          <div className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center shadow-md shadow-primary/20 transition-transform hover:scale-105 active:scale-95 cursor-pointer bg-card border border-border">
+            <img src={logoImg} alt="AI DB Studio" className="w-full h-full object-cover" />
           </div>
 
           {/* Flyout Tooltip */}
@@ -51,7 +72,10 @@ export const Sidebar: React.FC = () => {
         </div>
 
         {/* Navigation Items */}
-        <nav className="flex flex-col gap-2 w-full items-center">
+        <nav
+          className="flex flex-col gap-2 w-full items-center"
+          style={{ WebkitAppRegion: 'no-drag' } as any}
+        >
           {navItems.map((item) => {
             const Icon = item.icon;
             const active = activeView === item.id;
@@ -88,7 +112,10 @@ export const Sidebar: React.FC = () => {
         </nav>
 
         {/* Quick New Draft Button */}
-        <div className="relative group flex items-center justify-center w-full pt-1">
+        <div
+          className="relative group flex items-center justify-center w-full pt-1"
+          style={{ WebkitAppRegion: 'no-drag' } as any}
+        >
           <div className="w-8 h-px bg-border/80 mb-2" />
           <button
             onClick={() => {
@@ -108,7 +135,10 @@ export const Sidebar: React.FC = () => {
       </div>
 
       {/* Bottom Group: Connection Status & Theme Toggle */}
-      <div className="flex flex-col items-center gap-3 w-full">
+      <div
+        className="flex flex-col items-center gap-3 w-full"
+        style={{ WebkitAppRegion: 'no-drag' } as any}
+      >
         {/* Active Connection Status Dot */}
         <div className="relative group flex items-center justify-center">
           <div

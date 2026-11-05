@@ -78,4 +78,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   copyToClipboard: async (text: string) => {
     clipboard.writeText(text);
   },
+
+  // System
+  platform: process.platform,
 });

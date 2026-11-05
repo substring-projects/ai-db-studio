@@ -183,6 +183,9 @@ export interface ElectronAPI {
 
   // Clipboard
   copyToClipboard: (text: string) => Promise<void>;
+
+  // System
+  platform: string;
 }
 
 declare global {

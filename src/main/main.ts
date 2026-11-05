@@ -20,6 +20,8 @@ function createWindow() {
     minWidth: 960,
     minHeight: 640,
     titleBarStyle: 'hiddenInset',
+    trafficLightPosition: { x: 18, y: 14 },
+    icon: path.join(__dirname, '../src/renderer/assets/logo.png'),
     backgroundColor: '#18191c',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),

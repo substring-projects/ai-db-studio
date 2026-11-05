@@ -8,7 +8,10 @@ export const TopBar: React.FC = () => {
   const isConnected = activeProfile && connectedProfileIds.includes(activeProfile.id);
 
   return (
-    <header className="h-12 border-b border-border bg-card/60 backdrop-blur-xs flex items-center justify-between px-5 shrink-0 select-none z-10">
+    <header
+      style={{ WebkitAppRegion: 'drag' } as any}
+      className="h-12 border-b border-border bg-card/60 backdrop-blur-xs flex items-center justify-between px-5 shrink-0 select-none z-10"
+    >
       {/* Breadcrumb Title */}
       <div className="flex items-center gap-2 text-xs">
         <span className="font-semibold tracking-wide text-foreground">
@@ -22,7 +25,10 @@ export const TopBar: React.FC = () => {
 
       {/* Active profile badge / switcher */}
       {activeView === 'workbench' && (
-        <div className="flex items-center gap-2">
+        <div
+          style={{ WebkitAppRegion: 'no-drag' } as any}
+          className="flex items-center gap-2"
+        >
           <div className="flex items-center gap-2 px-3 py-1.5 bg-background border border-border rounded-lg text-xs shadow-2xs">
             <Circle
               className={`w-2 h-2 ${
