@@ -1,0 +1,132 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg-primary: #18191c;
+    --bg-surface: #222428;
+    --bg-sidebar: #121315;
+    --border-color: #303237;
+    --text-primary: #ececef;
+    --text-muted: #adb1bb;
+    --accent: #b6acf4;
+  }
+
+  .light {
+    --bg-primary: #ffffff;
+    --bg-surface: #ffffff;
+    --bg-sidebar: #f6f6f8;
+    --border-color: #dce0ea;
+    --text-primary: #242938;
+    --text-muted: #606a7c;
+    --accent: #6654c9;
+  }
+}
+
+/* Custom subtle scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(150, 150, 150, 0.25);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(150, 150, 150, 0.45);
+}
+
+/* Micro-animations */
+@keyframes popIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.9) translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes slideDown {
+  0% {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUp {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInRight {
+  0% {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+
+@keyframes badgeBounce {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.animate-pop-in {
+  animation: popIn 0.24s cubic-bezier(0.1, 0.9, 0.2, 1) forwards;
+}
+
+.animate-slide-down {
+  animation: slideDown 0.22s ease-out forwards;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.22s ease-out forwards;
+}
+
+.animate-slide-right {
+  animation: slideInRight 0.24s ease-out forwards;
+}
+
+.animate-shake {
+  animation: shake 0.3s ease-in-out;
+}
+
+.animate-badge-bounce {
+  animation: badgeBounce 0.3s cubic-bezier(0.2, 1.2, 0.3, 1) 0.05s forwards;
+}

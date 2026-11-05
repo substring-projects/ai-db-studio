@@ -1,0 +1,15 @@
+target/
+.idea/
+*.iml
+.DS_Store
+*.log
+.m2/
+__pycache__/
+*.pyc
+
+# Node / Electron
+node_modules/
+dist/
+dist-electron/
+.studio-data/
+
