@@ -58,7 +58,25 @@ The assistant runs safe read queries on its own and shows you the results. Anyth
 
 ### Install
 
-Download an installer from [GitHub Releases](https://github.com/substring-projects/ai-db-studio/releases) if one is available for your platform, or build one yourself:
+Download the installer for your computer:
+
+| Platform | Download |
+| :--- | :--- |
+| **macOS** (any Mac) | [Universal DMG](https://github.com/substring-projects/ai-db-studio/releases/download/v0.2.0/AI.DB.Studio-0.2.0-universal.dmg) (185 MB) |
+| **macOS** (Apple Silicon) | [Apple Silicon DMG](https://github.com/substring-projects/ai-db-studio/releases/download/v0.2.0/AI.DB.Studio-0.2.0-arm64.dmg) (106 MB) |
+| **macOS** (Intel) | [Intel DMG](https://github.com/substring-projects/ai-db-studio/releases/download/v0.2.0/AI.DB.Studio-0.2.0.dmg) (113 MB) |
+| **Windows** (64-bit) | [Installer](https://github.com/substring-projects/ai-db-studio/releases/download/v0.2.0/AI.DB.Studio-Setup-0.2.0-x64.exe) (91 MB) or [portable version](https://github.com/substring-projects/ai-db-studio/releases/download/v0.2.0/AI.DB.Studio.0.2.0.exe) (82 MB) |
+
+All versions are on the [Releases page](https://github.com/substring-projects/ai-db-studio/releases).
+
+These installers aren't signed with a developer certificate yet, so the first time you open the app:
+
+- **macOS:** if it's blocked, go to **System Settings → Privacy & Security** and choose **Open Anyway**.
+- **Windows:** on the SmartScreen warning, choose **More info → Run anyway**.
+
+### Build from source
+
+Requires Node.js 22.18 or newer.
 
 ```bash
 git clone https://github.com/substring-projects/ai-db-studio.git
@@ -67,10 +85,7 @@ npm ci
 npm run dist:mac   # or: npm run dist:win
 ```
 
-Installers are written to `release/`. They aren't signed with a developer certificate yet, so the first time you open the app:
-
-- **macOS:** if it's blocked, go to **System Settings → Privacy & Security** and choose **Open Anyway**.
-- **Windows:** on the SmartScreen warning, choose **More info → Run anyway**.
+Installers are written to `release/`.
 
 ### Connect to a database
 
