@@ -18,18 +18,18 @@
 
 **One-line pitch:** *The database browsing experience of DBeaver, combined with an AI chat assistant that can query and explain your data.*
 
-**Principles:** desktop-first; excellent UX; database client works without AI; user controls database connectivity; AI read-only by design; manual writes guarded by explicit user confirmation; no silent upload of row data to cloud AI; transparent generated SQL; secure local persistence; cross-platform parity.
+**Principles:** desktop-first; excellent UX; database client works without AI; user controls database connectivity; AI writes only after human review; manual writes guarded by explicit user confirmation; no silent upload of row data to cloud AI; transparent generated SQL; secure local persistence; cross-platform parity.
 
 ### Confirmed product decisions
 
 | Area | Decision |
 |---|---|
 | First public release | macOS + Windows + Linux |
-| Interface | JavaFX, styled with AtlantaFX, premium dark/light modes |
-| Application runtime | Java 21 targeted; Spring Boot (non-web) + Spring AI in the same JVM; verify compatible dependency versions |
+| Interface | React and Tailwind CSS in Electron, premium dark/light modes |
+| Application runtime | Electron with TypeScript; database and AI work run in the main process |
 | Data sources | Multiple user-managed PostgreSQL and MySQL connections in MVP |
 | AI model providers | **OpenAI and Ollama both in MVP**; user configures in Settings |
-| Cloud data disclosure | **Only relevant schema metadata and the user's question/context** may be sent to a cloud model, not query result rows |
+| AI data disclosure | **Schema metadata and the user's question/context** are sent to the model. Query result rows are sent only if the user opts in |
 | SQL actions | AI **automatically executes validated read-only SQL** only; manual editor also supports INSERT/UPDATE/DELETE and permitted DDL after explicit confirmation |
 | Distribution | Free, open-source desktop application under **Apache-2.0** |
 | Storage | Local app data; OS credential vault for connection/API secrets |
@@ -39,7 +39,7 @@
 - **Both PostgreSQL and MySQL ship in MVP** with connection management, schema browsing, tabular results, manual SQL, and AI text-to-SQL parity.
 - **AI execution is permanently read-only for v1:** AI-generated SQL must pass dialect-aware AST validation and execute through an independently restricted read-only connection/transaction. No write tool is exposed to the model.
 - **Manual editor permits writes** (`INSERT`, `UPDATE`, `DELETE`, and supported DDL) only after an explicit per-execution confirmation showing target connection, SQL and potential impact. Actual capabilities depend on DB grants; destructive/DDL workflows should use stronger warnings. No blanket 'remember approval'. Transaction control and rollback UX are specified below.
-- Cloud LLM receives only approved relevant schema metadata and user question/context; **never query results or row values**, including in errors, conversation context or tool responses. The user's own question could contain sensitive text; explain this at setup.
+- The model receives schema metadata and user question/context. **Query results and row values are not sent unless the user opts in**, and are never stored in conversation memory. The user's own question could contain sensitive text; explain this at setup.
 - For cloud AI, numerical summaries and charts from query rows are calculated locally and presented as deterministic outputs, rather than requesting a model to narrate raw row values.
 - A chat is scoped to one connection; no cross-database querying in MVP. Database writes from the visual data grid are out of scope unless separately approved.
 - Initial installer platforms are **Windows, macOS and Linux**. No hosted accounts, remote telemetry, or paid tier are required for MVP.
@@ -138,7 +138,7 @@ The product is successful only when **both** workflows work well: a developer ch
 3. Review results, execution time, errors and query history.
 4. Open AI-generated SQL into an editor tab.
 
-**Accept when:** a manual SELECT returns rows; a manual UPDATE or DELETE cannot run without an explicit confirmation; cancel stops it before execution; a rejected statement never reaches JDBC; DB permission failures are shown clearly; AI has no pathway to manual write execution.
+**Accept when:** a manual SELECT returns rows; a manual UPDATE or DELETE cannot run without an explicit confirmation; cancel stops it before execution; a rejected statement never reaches the database driver; DB permission failures are shown clearly; AI cannot run a write without the user's approval of that exact statement.
 
 ### UJ-05 — Configure AI in Settings
 
@@ -147,7 +147,7 @@ The product is successful only when **both** workflows work well: a developer ch
 3. For OpenAI, review privacy disclosure: question and relevant schema metadata leave the device; row results do not.
 4. Select preferred model and save settings locally.
 
-**Accept when:** both providers work in MVP, key is stored in OS vault (never plaintext in SQLite), Ollama failure has actionable troubleshooting and cloud disclosure is visible.
+**Accept when:** both providers work in MVP, key is encrypted with the OS keychain (never stored in plain text), Ollama failure has actionable troubleshooting and cloud disclosure is visible.
 
 ### UJ-06 — Talk to a database
 
@@ -193,8 +193,8 @@ The product is successful only when **both** workflows work well: a developer ch
 
 ### UI standards
 
-- Modern and compact, inspired by polished database and developer tools rather than default JavaFX demos.
-- AtlantaFX skin and app CSS tokens; dark/light toggles; persists theme and window layout.
+- Modern and compact, inspired by polished database and developer tools rather than generic admin templates.
+- Semantic CSS theme tokens; dark/light toggles; persists theme and window layout.
 - Consistent typography, restrained accent, high-contrast status and error patterns.
 - Keyboard navigation: `Ctrl/Cmd+K` search/command, `Ctrl/Cmd+Enter` run SQL, `Ctrl/Cmd+L` focus AI prompt (proposed mappings).
 - Accessible labels, focus indicators, appropriately sized hit targets, high-DPI support.
@@ -225,7 +225,7 @@ The product is successful only when **both** workflows work well: a developer ch
 | SEC-01 | P0 | SQL AST validation, policy allowlists and least-privilege DB credentials |
 | SEC-02 | P0 | Row cap, timeout, cancellation, query cost/complexity control |
 | SEC-03 | P0 | Prevent SSRF-like abuse by unsafe endpoints/metadata and secure logs |
-| UX-01 | P0 | Responsive JavaFX/AtlantaFX shell, native navigation and settings |
+| UX-01 | P0 | Responsive desktop shell, native navigation and settings |
 | UX-02 | P0 | Dark/light preference and polished empty/loading/error states |
 | DIST-01 | P0 | Reproducible installers and smoke tests for 3 operating systems |
 | OSS-01 | P0 | License, build docs, security policy and contribution instructions |
@@ -236,35 +236,28 @@ The product is successful only when **both** workflows work well: a developer ch
 
 ## 7. Technical Architecture
 
-### Single-process desktop runtime
+### Electron processes
 
 ```text
-JavaFX + AtlantaFX UI (JavaFX Application Thread)
-    │  ViewModels / Observable state / background tasks
+React interface (renderer process)
+    │  window.electronAPI, a typed bridge over IPC (no direct database or AI access)
     ▼
-Spring ApplicationContext (WebApplicationType.NONE; no embedded web server)
-    ├── ConnectionManager (JDBC, bounded pools, TLS)
-    ├── MetadataExplorer / SchemaCatalog
-    ├── ManualSqlService (explicit write confirmation, transaction controls)
-    ├── AiSettingsService / OpenAI + Ollama providers
-    ├── Spring AI ChatClient + Agent Orchestrator
-    ├── AiReadOnlySqlPolicyEngine (dialect AST parser + allowlists)
-    ├── AiReadOnlyExecutor + ManualSqlExecutor (separate capability boundaries)
-    ├── ConversationService / QueryHistoryService
-    ├── ChartSummaryService (deterministic local processing)
-    └── LocalStorage (SQLite + OS credential vault)
+Electron main process
+    ├── ConnectionManager (pg and mysql2 pools, TLS, queries, cancellation, metadata)
+    ├── SqlClassifier (what is read-only; independent of the model)
+    ├── ChatAgentService + LangChain agent (OpenAI and Ollama providers, query review)
+    ├── ChatMemoryStore (conversation memory, without result rows)
+    └── StorageService (local JSON files; secrets encrypted with the OS keychain)
          │
-         └── JDBC → user-selected PostgreSQL or MySQL database
+         └── Database drivers → user-selected PostgreSQL or MySQL database
 ```
-
-**No separate REST server is required** for the desktop UI. Spring AI and JDBC calls run on worker threads; JavaFX updates occur on the UI thread. React/Electron/Tauri are no longer primary implementation targets.
 
 ### Important component boundaries
 
-- `ConnectionManager`: lifecycle of connections, driver discovery, TLS settings, credential retrieval, timeouts. Do not trust pasted JDBC URLs or automatically enable arbitrary drivers.
+- `ConnectionManager`: lifecycle of connections, TLS settings, credential retrieval, timeouts.
 - `SchemaCatalog`: discovered permitted metadata, refresh and cache, capability mapping.
 - `AiReadOnlySqlPolicyEngine`: independent of LLM; dialect-aware SQL AST inspection for read-only statements; no AI access to manual executor. Manual SQL uses a separate executor and user authorization flow.
-- `AiReadOnlyExecutor`: bounded, least-privileged path exclusively for AI. `ManualSqlExecutor`: separate user-driven path supporting explicitly confirmed writes, transaction handling, limits and cancellation. Shared low-level JDBC utilities do not imply shared write authority.
+- `AiReadOnlyExecutor`: bounded, least-privileged path exclusively for AI. `ManualSqlExecutor`: separate user-driven path supporting explicitly confirmed writes, transaction handling, limits and cancellation. Shared low-level driver utilities do not imply shared write authority.
 - `AgentOrchestrator`: request scope, schema retrieval, LLM calls, tool iteration budget, execution and structured outcome.
 - `AiPrivacyGateway`: allowlisted payload construction, redaction, audit of what is shared; disallows results/sample rows in cloud provider requests.
 - `ConversationService`: connection-scoped state; persisted messages without implicit row payload retention.
@@ -273,15 +266,15 @@ Spring ApplicationContext (WebApplicationType.NONE; no embedded web server)
 
 | Layer | Choice |
 |---|---|
-| Runtime | Java 21 targeted; verify JavaFX + AtlantaFX release compatibility; prefer pinned supported versions |
-| UI | JavaFX + AtlantaFX; Ikonli; RichTextFX candidate for SQL editing |
-| Framework | Spring Boot (non-web), dependency injection, Spring AI |
+| Runtime | Electron, Node.js and TypeScript |
+| UI | React, Tailwind CSS, Radix UI, Lucide icons; Monaco for SQL editing; TanStack Table for results |
+| AI framework | LangChain |
 | Providers | OpenAI API and Ollama, independently configurable |
-| Database connectivity | PostgreSQL and MySQL JDBC drivers; dialect/metadata adapters |
-| Local metadata | SQLite with migration tooling |
-| Secrets | OS credential store (macOS Keychain, Windows Credential Manager, Linux Secret Service where supported); fallback strategy TBD |
-| Build | Maven; `jpackage` per operating system |
-| Tests | JUnit, Testcontainers PostgreSQL and MySQL, UI automation/smoke tests, SQL adversarial suite |
+| Database connectivity | `pg` and `mysql2` drivers; dialect-aware metadata queries |
+| Local metadata | JSON files in the app's data directory |
+| Secrets | Electron `safeStorage`, backed by the OS keychain. Without it, secrets are kept for the session only, never written in plain text |
+| Build | Vite; `electron-builder` per operating system |
+| Tests | Node test runner, including an adversarial SQL suite |
 
 ### Provider privacy contract
 
@@ -296,7 +289,7 @@ Spring ApplicationContext (WebApplicationType.NONE; no embedded web server)
 1. User selects a connection and enters a question.
 2. Engine checks configured provider, connection permissions, applicable privacy mode and conversation state.
 3. Fetch only relevant authorized metadata; construct minimal schema context.
-4. Model returns structured SQL proposal and expected output shape; no direct model access to JDBC.
+4. Model returns structured SQL proposal and expected output shape; no direct model access to the database drivers.
 5. Parse and validate SQL, identifiers, functions, schemas, row caps, parameters, complexity and statement category.
 6. **Auto-execute only if all checks pass**, using an AI-specific read-only role/session and guarded executor; never call manual SQL services.
 7. Return structured results to local UI, with SQL provenance and execution details.
@@ -327,9 +320,9 @@ Spring ApplicationContext (WebApplicationType.NONE; no embedded web server)
 | Protection | Statement preview, multi-statement review, dangerous/DDL warning, cancellation, audit record, no auto-retry | AST allowlist, function and object checks, quotas, read-only DB privilege, cancellation |
 | UI indicator | **MANUAL · WRITE CAPABLE** and active database name | **AI · READ ONLY** |
 
-**Manual write confirmation invariant:** A SQL edit, target DB change or expired approval invalidates the confirmation. `executeConfirmedWrite` requires a single-use token issued after displaying a statement fingerprint and target profile; a JavaFX modal alone is not an authorization boundary. Explicit DB transaction safeguards and privilege grants remain the ultimate protection. For v1, block execution of multiple semicolon-separated mutating statements unless the UI implements a full statement-by-statement review and transaction model. Prevent accidental writes on connections marked production by adding extra friction.
+**Manual write confirmation invariant:** A SQL edit, target DB change or expired approval invalidates the confirmation. `executeConfirmedWrite` requires a single-use token issued after displaying a statement fingerprint and target profile; a modal alone is not an authorization boundary. Explicit DB transaction safeguards and privilege grants remain the ultimate protection. For v1, block execution of multiple semicolon-separated mutating statements unless the UI implements a full statement-by-statement review and transaction model. Prevent accidental writes on connections marked production by adding extra friction.
 
-**AI read-only invariant:** AI-generated code cannot access manual executor beans/tools. Parsed SQL must reject DDL, DML, `SELECT ... FOR UPDATE`, mutating CTEs, functions with side effects, stored routines and unsafe dialect-specific constructs. For PostgreSQL/MySQL, verify read-only semantics with engine-specific controls and database privileges; JDBC `setReadOnly(true)` alone is not a security boundary. SQL auto-execution always fails closed if policy or privilege checks fail.
+**AI query invariant:** The model can propose statements but cannot run a write or approve one. A statement runs without a person only if it passes the strict read-only check, which rejects DDL, DML, `SELECT ... FOR UPDATE`, mutating CTEs, functions with side effects and multiple statements; it then runs in a read-only transaction. Everything else waits for the user to approve that exact statement on that connection. Auto-execution fails closed if the check fails.
 
 **Persistence:** Log query text and metadata locally only if query-history settings permit it. Never store connection secrets or raw result rows in history by default. Write audits show timestamp, connection, action, completion status and rows affected, not sensitive payloads.
 
@@ -348,44 +341,11 @@ Spring ApplicationContext (WebApplicationType.NONE; no embedded web server)
 | `write_confirmations` (ephemeral, in memory) | token, connection_id, sql_digest, expires_at, consumed | One-time manual write approval, never persisted as reusable authorization |
 | `query_policies` | connection_id, ai_role_ref, allowed_schemas, statement_timeout_ms, row_limit, manual_writes_enabled | Distinct AI and manual capabilities; no plaintext secrets |
 
-Version the SQLite schema with migrations. Support export of **non-secret** settings only, with explicit data export controls.
+Support export of **non-secret** settings only, with explicit data export controls.
 
 ## 10. Internal API / Service Contracts
 
-UI directly invokes Spring services, not REST endpoints.
-
-```java
-interface ConnectionService {
-    ConnectionProfile save(ConnectionDraft draft);
-    ConnectionTestResult test(UUID profileId);
-    List<ConnectionProfile> list();
-    void disconnect(UUID profileId);
-}
-
-interface DatabaseExplorerService {
-    List<DbSchema> listSchemas(UUID connectionId);
-    List<DbObject> listObjects(UUID connectionId, String schema);
-    TableDetails describe(UUID connectionId, DbObjectRef object);
-    PageResult browse(UUID connectionId, BrowseRequest request);
-}
-
-interface AiReadOnlyQueryService {
-    QueryOutcome executeValidatedReadOnly(UUID connectionId, AiQueryRequest request);
-    void cancel(UUID executionId);
-}
-
-interface ManualSqlService {
-    SqlClassification classify(UUID connectionId, String sql);
-    ManualExecutionOutcome executeSelect(UUID connectionId, ManualQueryRequest request);
-    ManualExecutionOutcome executeConfirmedWrite(UUID connectionId, ManualWriteRequest request,
-                                                 OneTimeConfirmationToken confirmation);
-    void cancel(UUID executionId);
-}
-
-interface AiAssistantService {
-    Publisher<AiChatEvent> ask(UUID conversationId, String question);
-}
-```
+The interface calls the main process through the typed `ElectronAPI` contract in `src/shared/types.ts`, not REST endpoints.
 
 `AiChatEvent`: `THINKING` (no secret model chain-of-thought), `SCHEMA_SELECTED`, `SQL_PROPOSED`, `VALIDATING`, `EXECUTING`, `RESULT_AVAILABLE`, `SUMMARY`, `ERROR`, `DONE`.
 
@@ -428,25 +388,25 @@ Priorities: **P0 = necessary for first release**, **P1 = immediately following**
 
 | Sprint / Epic | ID | Priority | Deliverable | Acceptance gate |
 |---|---|---|---|---|
-| Foundation | APP-01 | P0 | JavaFX + Spring Boot non-web bootstrap | One JVM; lifecycle starts and stops cleanly |
-| Foundation | APP-02 | P0 | AtlantaFX theme tokens, light/dark and persistence | Toggle applies everywhere and survives restart |
+| Foundation | APP-01 | P0 | Electron and React bootstrap | Lifecycle starts and stops cleanly |
+| Foundation | APP-02 | P0 | Theme tokens, light/dark and persistence | Toggle applies everywhere and survives restart |
 | Foundation | APP-03 | P0 | Workbench shell, sidebar, tabs, split panels, status bar | Resizable; keyboard usable; no blocked UI thread |
-| Foundation | APP-04 | P0 | SQLite schema migrations + settings store | Tested migrations and local data upgrades |
-| Connections | CON-01 | P0 | PostgreSQL JDBC adapter and test-connection service | Success + TLS/auth/network errors covered |
+| Foundation | APP-04 | P0 | Local settings store | Local data upgrades are tested |
+| Connections | CON-01 | P0 | PostgreSQL driver and test-connection service | Success + TLS/auth/network errors covered |
 | Connections | CON-02 | P0 | OS credential vault integration | No plaintext secrets at rest/in logs |
 | Connections | CON-03 | P0 | Connection management forms and lifecycle | Add/edit/test/delete/switch multiple profiles |
 | DB client | DBUI-01 | P0 | Lazy connection/schema/object explorer | Loading/errors and refresh work |
 | DB client | DBUI-02 | P0 | Structure inspector (columns/keys/indexes) | Matches PostgreSQL metadata test fixtures |
 | DB client | DBUI-03 | P0 | Paginated data grid, sort/filter/copy | Large tables do not freeze window |
 | DB client | DBUI-04 | P0 | SQL editor, highlighting and tab persistence | Multiple tabs + run/cancel controls |
-| Connections | CON-04 | P0 | MySQL JDBC test + TLS options | MySQL credentials, timeout, TLS/error paths covered |
+| Connections | CON-04 | P0 | MySQL test + TLS options | MySQL credentials, timeout, TLS/error paths covered |
 | Database client | DBUI-06 | P0 | MySQL explorer, grid, manual SQL parity | Both engines pass same UX acceptance suite |
 | Manual SQL | MAN-01 | P0 | Statement classification and guarded manual query execution | Dialect-aware statement classification; DB grants respected |
 | Manual SQL | MAN-02 | P0 | One-time write confirmation UI and service token | SQL/connection changes invalidate approval; no unconfirmed write |
 | Manual SQL | MAN-03 | P0 | Manual write results, errors and affected-row summary | Clear success/failure, no implicit retry |
 | Manual SQL | MAN-04 | P0 | Strict AI/manual execution path separation | Integration test verifies model cannot reach write executor |
 | Security | SAFE-01 | P0 | AI-only PostgreSQL/MySQL read-only SQL AST validator | Adversarial suite rejects writes and dangerous SELECT |
-| Security | SAFE-02 | P0 | Guarded JDBC executor | Row/timeout/cancel/privilege limits enforced |
+| Security | SAFE-02 | P0 | Guarded query executor | Row/timeout/cancel/privilege limits enforced |
 | DB client | DBUI-05 | P0 | Results grid, CSV export, query history | Correct headers, encoding and export hardening |
 | AI settings | MODEL-01 | P0 | OpenAI provider, model settings, secure key store | Connect/test/diagnostic states work |
 | AI settings | MODEL-02 | P0 | Ollama provider, endpoint/model discovery | Local inference works and handles offline cases |
@@ -458,7 +418,7 @@ Priorities: **P0 = necessary for first release**, **P1 = immediately following**
 | Agent | AGENT-05 | P0 | SQL explanation, provenance and local charts | No cloud result-row disclosure; no fabricated data |
 | Quality | TEST-01 | P0 | Testcontainers integration + adversarial SQL tests | CI blocks unsafe regression |
 | Quality | TEST-02 | P0 | AI evaluation dataset and correctness gates | Gold questions, expected SQL semantics, error cases |
-| Release | REL-01 | P0 | `jpackage` installers + bundled runtime | Smoke-tested macOS/Windows/Linux installs |
+| Release | REL-01 | P0 | `electron-builder` installers | Smoke-tested macOS/Windows/Linux installs |
 | Release | REL-02 | P0 | Open-source repo/license/docs/SBOM/security policy | Clean-source reproducible build, license chosen |
 | Database support | DB-EXT-01 | P0 | MySQL driver, metadata/dialect and AI parity | Connection, browsing, manual SQL and AI tests |
 | Next | DB-EXT-02 | P1 | SQL Server driver/dialect | Same parity acceptance gates |
@@ -480,7 +440,7 @@ Priorities: **P0 = necessary for first release**, **P1 = immediately following**
 
 ## 14. Verification and MVP Exit Criteria
 
-1. A fresh install opens on **macOS, Windows and Linux** with no manual Java setup.
+1. A fresh install opens on **macOS, Windows and Linux** with no manual runtime setup.
 2. New user creates PostgreSQL and MySQL connections and switches between them without context leakage.
 3. Visual database explorer can inspect a schema, table details and paginated rows without AI enabled.
 4. SQL editor runs SELECT and explicitly confirmed manual UPDATE/DELETE; cancellation, history and CSV export work.
@@ -513,7 +473,7 @@ All eight key product choices (platforms, models, cloud privacy, AI auto-executi
 
 1. Lock the confirmed PostgreSQL + MySQL, manual-write/AI-read-only and Apache-2.0 requirements in issue templates and acceptance tests.
 2. Create a small design system and clickable navigation prototype: connection sidebar, schema tree, data table, SQL editor and AI chat tab.
-3. Bootstrap single-JVM JavaFX + Spring Boot, secure local storage and PostgreSQL/MySQL adapters.
+3. Bootstrap the Electron app, secure local storage and PostgreSQL/MySQL adapters.
 4. Implement database browsing **before** AI orchestration, then separate manual SQL and AI-only read-only execution paths.
 
 ---

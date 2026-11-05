@@ -1,13 +1,16 @@
-# Dependency and Runtime Matrix
+# Dependencies
 
-| Component | Version | Role | Verification |
-| :--- | :--- | :--- | :--- |
-| **Node.js** | `>= 20` (Node 24 recommended) | Desktop JavaScript & native runtime | Tested on Node v24.4.0 |
-| **Electron** | `^34.2.0` | Desktop container & multi-process IPC | IPC & window management |
-| **Vite** | `^6.1.0` | Production bundler & dev server (HMR) | `npm run build` |
-| **React** | `^19.0.0` | Declarative UI framework | Component render & lifecycle |
-| **Tailwind CSS** | `^3.4.17` | Utility-first styling & dark/light themes | Atomic stylesheet compilation |
-| **Lucide React** | `^1.16.0` | Vector icons (Feather successor) | UI badging & actions |
-| **pg** | `^8.13.1` | PostgreSQL connection pooling | Protocol & query execution |
-| **mysql2** | `^3.12.0` | MySQL connection pooling | Protocol & query execution |
-| **TypeScript** | `^5.7.3` | Type safety across main & renderer | `npm run typecheck` |
+| Component | Role |
+| :--- | :--- |
+| Node.js 22.18+ | Development and tests |
+| Electron 34 | Desktop runtime |
+| Vite 6, electron-builder | Bundling and installers |
+| React 19, TypeScript | Interface |
+| Tailwind CSS 3, Radix UI, Lucide | Styling, components and icons |
+| Monaco Editor, sql-formatter | SQL editing |
+| TanStack Table and Virtual | Results grid |
+| react-resizable-panels, cmdk | Layout and command palette |
+| pg, mysql2 | Database drivers |
+| LangChain (`@langchain/core`, `@langchain/openai`, `@langchain/ollama`), Zod | AI assistant |
+
+Exact versions are in `package.json` and `package-lock.json`. Interface and AI libraries are bundled at build time, so they are listed as development dependencies.

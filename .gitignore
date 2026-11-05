@@ -1,9 +1,6 @@
-target/
 .idea/
-*.iml
 .DS_Store
 *.log
-.m2/
 __pycache__/
 *.pyc
 
