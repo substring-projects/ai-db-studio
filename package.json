@@ -9,7 +9,12 @@
     "build": "tsc && vite build",
     "test": "node --test test/*.test.mjs",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "pack": "npm run build && electron-builder --dir",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:all": "npm run build && electron-builder -mw",
+    "dist": "npm run build && electron-builder"
   },
   "dependencies": {
     "lucide-react": "^1.16.0",
@@ -26,6 +31,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
     "electron": "^34.2.0",
+    "electron-builder": "^26.18.0",
     "postcss": "^8.5.1",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.3",

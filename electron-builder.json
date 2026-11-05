@@ -1,0 +1,75 @@
+{
+  "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
+  "appId": "com.aidbstudio.app",
+  "productName": "AI DB Studio",
+  "copyright": "Copyright © 2026 AI DB Studio",
+  "directories": {
+    "output": "release",
+    "buildResources": "build"
+  },
+  "files": [
+    "dist/**",
+    "dist-electron/**",
+    "build/icon.png",
+    "build/icon.ico",
+    "build/icon.icns",
+    "package.json"
+  ],
+  "asar": true,
+  "mac": {
+    "target": [
+      {
+        "target": "dmg",
+        "arch": ["universal", "arm64", "x64"]
+      },
+      {
+        "target": "zip",
+        "arch": ["universal", "arm64", "x64"]
+      }
+    ],
+    "category": "public.app-category.developer-tools",
+    "icon": "build/icon.icns",
+    "hardenedRuntime": false,
+    "gatekeeperAssess": false,
+    "identity": null
+  },
+  "dmg": {
+    "contents": [
+      {
+        "x": 130,
+        "y": 220
+      },
+      {
+        "x": 410,
+        "y": 220,
+        "type": "link",
+        "path": "/Applications"
+      }
+    ],
+    "window": {
+      "width": 540,
+      "height": 380
+    }
+  },
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      },
+      {
+        "target": "portable",
+        "arch": ["x64"]
+      }
+    ],
+    "icon": "build/icon.ico"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "AI DB Studio",
+    "artifactName": "${productName}-Setup-${version}-${arch}.${ext}"
+  }
+}

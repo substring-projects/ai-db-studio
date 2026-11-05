@@ -11,5 +11,6 @@ __pycache__/
 node_modules/
 dist/
 dist-electron/
+release/
 .studio-data/
 

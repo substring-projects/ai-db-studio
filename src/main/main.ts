@@ -1,6 +1,7 @@
 import electron from 'electron';
 const { app, BrowserWindow, ipcMain } = electron;
 import path from 'node:path';
+import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { StorageService } from './services/StorageService';
 import { ConnectionManager } from './services/ConnectionManager';
@@ -13,7 +14,21 @@ let mainWindow: BrowserWindow | null = null;
 const storage = new StorageService();
 const connections = new ConnectionManager();
 
+function resolveAppIcon(): string | undefined {
+  const candidates = [
+    path.join(__dirname, '../build/icon.png'),
+    path.join(__dirname, '../build/icon.ico'),
+    path.join(__dirname, '../build/icon.icns'),
+    path.join(__dirname, '../src/renderer/assets/logo.png'),
+    path.join(process.resourcesPath, 'build/icon.png'),
+    path.join(process.resourcesPath, 'icon.png'),
+  ];
+  return candidates.find((p) => fs.existsSync(p));
+}
+
 function createWindow() {
+  const iconPath = resolveAppIcon();
+
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 840,
@@ -21,7 +36,7 @@ function createWindow() {
     minHeight: 640,
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 18, y: 14 },
-    icon: path.join(__dirname, '../src/renderer/assets/logo.png'),
+    icon: iconPath,
     backgroundColor: '#18191c',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
