@@ -67,7 +67,10 @@ npm ci
 npm run dist:mac   # or: npm run dist:win
 ```
 
-Installers are written to `release/`. They aren't code-signed yet, so macOS and Windows will warn you the first time you open the app.
+Installers are written to `release/`. They aren't signed with a developer certificate yet, so the first time you open the app:
+
+- **macOS:** if it's blocked, go to **System Settings → Privacy & Security** and choose **Open Anyway**.
+- **Windows:** on the SmartScreen warning, choose **More info → Run anyway**.
 
 ### Connect to a database
 
