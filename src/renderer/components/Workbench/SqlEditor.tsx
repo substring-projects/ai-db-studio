@@ -2,6 +2,7 @@ import React, { useEffect, useImperativeHandle, useRef } from 'react';
 import { useStudio } from '../../context/StudioContext';
 import { editorCursorStore } from '../../context/WorkspaceContext';
 import { CompletionSchema, monaco, monacoTheme, registerSchemaSource } from '../../lib/monaco';
+import { prefs } from '../../lib/utils';
 
 export interface SqlEditorHandle {
   /** The selected text if there is a selection, otherwise null. */
@@ -62,6 +63,7 @@ export const SqlEditor = React.forwardRef<SqlEditorHandle, SqlEditorProps>(
         fontFamily: '"SF Mono", "JetBrains Mono", Menlo, Consolas, monospace',
         fontSize: 12.5,
         lineHeight: 20,
+        mouseWheelZoom: true,
         lineNumbersMinChars: 3,
         lineDecorationsWidth: 8,
         glyphMargin: false,
@@ -105,6 +107,20 @@ export const SqlEditor = React.forwardRef<SqlEditorHandle, SqlEditorProps>(
       }
       editor.addCommand(CtrlCmd | Shift | monaco.KeyCode.KeyL, passthrough('new-chat'));
       editor.addCommand(CtrlCmd | monaco.KeyCode.KeyL, passthrough('toggle-ai-panel'));
+      editor.addCommand(CtrlCmd | monaco.KeyCode.Equal, () => {
+        monaco.editor.EditorZoom.setZoomLevel(monaco.editor.EditorZoom.getZoomLevel() + 1);
+      });
+      editor.addCommand(CtrlCmd | monaco.KeyCode.Minus, () => {
+        monaco.editor.EditorZoom.setZoomLevel(monaco.editor.EditorZoom.getZoomLevel() - 1);
+      });
+      editor.addCommand(CtrlCmd | monaco.KeyCode.Digit0, () => {
+        monaco.editor.EditorZoom.setZoomLevel(0);
+      });
+
+      const savedZoom = prefs.get<number>('studio:editorZoom', 0);
+      if (typeof savedZoom === 'number' && savedZoom !== monaco.editor.EditorZoom.getZoomLevel()) {
+        monaco.editor.EditorZoom.setZoomLevel(savedZoom);
+      }
 
       const reportCursor = () => {
         if (!activeRef.current) return;
@@ -124,6 +140,9 @@ export const SqlEditor = React.forwardRef<SqlEditorHandle, SqlEditorProps>(
         }),
         editor.onDidChangeCursorSelection(reportCursor),
         editor.onDidFocusEditorText(reportCursor),
+        monaco.editor.EditorZoom.onDidChangeZoomLevel((zoom) => {
+          prefs.set('studio:editorZoom', zoom);
+        }),
       ];
 
       return () => {
