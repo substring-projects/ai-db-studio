@@ -133,6 +133,11 @@ export class ConnectionManager {
     this.sessions.delete(profileId);
   }
 
+  public async disconnectAll(): Promise<void> {
+    const ids = Array.from(this.sessions.keys());
+    await Promise.all(ids.map((id) => this.disconnect(id)));
+  }
+
   public async testConnection(profile: ConnectionProfile): Promise<{ success: boolean; message: string }> {
     try {
       const pwd = profile.password || '';
