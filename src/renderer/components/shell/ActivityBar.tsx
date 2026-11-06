@@ -1,9 +1,11 @@
 import React from 'react';
-import { Database, FileCode2, History, Settings, Sparkles } from 'lucide-react';
+import { Cable, Database, FileCode2, History, Settings, Sparkles } from 'lucide-react';
 import { Activity, useWorkspace } from '../../context/WorkspaceContext';
 import { useChat } from '../../context/ChatContext';
 import { cn } from '../../lib/utils';
 import { Tooltip } from '../ui/tooltip';
+import { DropdownMenu, DropdownMenuTrigger } from '../ui/menu';
+import { ConnectionDropdownContent } from './ConnectionDropdownContent';
 
 const ITEMS: { id: Activity; label: string; icon: React.ElementType; shortcut: string }[] = [
   { id: 'explorer', label: 'Database Explorer', icon: Database, shortcut: 'Mod+1' },
@@ -74,13 +76,36 @@ export const ActivityBar: React.FC = () => {
           />
         ))}
       </div>
-      <ActivityButton
-        label="Settings"
-        icon={Settings}
-        shortcut="Mod+,"
-        active={activeTab?.kind === 'settings'}
-        onClick={() => openSingleton('settings')}
-      />
+      <div className="flex flex-col">
+        <DropdownMenu>
+          <Tooltip content="Manage connections" side="right">
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label="Manage connections"
+                aria-current={activeTab?.kind === 'connections' ? 'page' : undefined}
+                className={cn(
+                  'relative flex h-10 w-full items-center justify-center transition-colors duration-100 focus-visible:outline-offset-[-3px]',
+                  activeTab?.kind === 'connections' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {activeTab?.kind === 'connections' && (
+                  <span className="absolute inset-y-2 left-0 w-0.5 rounded-r-sm bg-primary" />
+                )}
+                <Cable className="size-[18px]" strokeWidth={1.6} />
+              </button>
+            </DropdownMenuTrigger>
+          </Tooltip>
+          <ConnectionDropdownContent side="right" align="end" />
+        </DropdownMenu>
+        <ActivityButton
+          label="Settings"
+          icon={Settings}
+          shortcut="Mod+,"
+          active={activeTab?.kind === 'settings'}
+          onClick={() => openSingleton('settings')}
+        />
+      </div>
     </nav>
   );
 };

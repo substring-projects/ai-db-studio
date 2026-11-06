@@ -41,7 +41,10 @@ import {
   ContextMenuLabel,
   ContextMenuSeparator,
   ContextMenuTrigger,
+  DropdownMenu,
+  DropdownMenuTrigger,
 } from '../ui/menu';
+import { ConnectionDropdownContent } from '../shell/ConnectionDropdownContent';
 import { CreateTableModal } from '../Modals/CreateTableModal';
 
 const ROW_HEIGHT = 22;
@@ -429,11 +432,16 @@ export const DatabaseExplorer: React.FC = () => {
               <RefreshCw className={cn(activeProfile && schemas[activeProfile.id]?.status === 'loading' && 'animate-spin')} />
             </Button>
           </Tooltip>
-          <Tooltip content="Manage connections">
-            <Button variant="quiet" size="icon-sm" aria-label="Manage connections" onClick={() => openSingleton('connections')}>
-              <Cable />
-            </Button>
-          </Tooltip>
+          <DropdownMenu>
+            <Tooltip content="Manage connections">
+              <DropdownMenuTrigger asChild>
+                <Button variant="quiet" size="icon-sm" aria-label="Manage connections">
+                  <Cable />
+                </Button>
+              </DropdownMenuTrigger>
+            </Tooltip>
+            <ConnectionDropdownContent align="end" side="bottom" />
+          </DropdownMenu>
         </div>
       </div>
 
@@ -641,6 +649,9 @@ export const DatabaseExplorer: React.FC = () => {
               <ContextMenuItem onSelect={() => openEditProfileModal(menuNode.profile)}>
                 <Pencil /> Edit…
               </ContextMenuItem>
+              <ContextMenuItem onSelect={() => openSingleton('connections')}>
+                <Cable /> Manage connections…
+              </ContextMenuItem>
               <ContextMenuSeparator />
               <ContextMenuItem destructive onSelect={() => removeConnection(menuNode.profile)}>
                 <Trash2 /> Remove connection…
@@ -728,6 +739,9 @@ export const DatabaseExplorer: React.FC = () => {
             <ContextMenuContent>
               <ContextMenuItem onSelect={() => openEditProfileModal(null)}>
                 <Plus /> Add connection…
+              </ContextMenuItem>
+              <ContextMenuItem onSelect={() => openSingleton('connections')}>
+                <Cable /> Manage connections…
               </ContextMenuItem>
             </ContextMenuContent>
           )}
