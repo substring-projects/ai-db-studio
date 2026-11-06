@@ -19,6 +19,26 @@ export function engineLabel(engine: Engine | undefined): string {
   return engine === 'MYSQL' ? 'MySQL' : 'PostgreSQL';
 }
 
+/**
+ * Tries to extract the primary source table from a query.
+ * For example:
+ *   "SELECT * FROM users" -> { table: "users" }
+ *   "SELECT id, name FROM public.users WHERE active = true" -> { table: "users", schema: "public" }
+ */
+export function extractTableNameFromSql(sql: string): { table: string; schema?: string } | null {
+  if (!sql) return null;
+  // Match FROM clause with optional schema qualification and quotes
+  const match = sql.match(/\bFROM\s+([`"'\w]+(?:\.[`"'\w]+)?)(?:\s+(?:AS\s+)?([`"'\w]+))?(?:[\s;,\)]|$)/i);
+  if (!match || !match[1]) return null;
+  const raw = match[1].replace(/[`"']/g, '').trim();
+  if (!raw || raw.startsWith('(')) return null;
+  if (raw.includes('.')) {
+    const parts = raw.split('.');
+    return { schema: parts[0], table: parts[1] };
+  }
+  return { table: raw };
+}
+
 export function sqlLiteral(value: unknown): string {
   if (value === null || value === undefined) return 'NULL';
   if (typeof value === 'number' || typeof value === 'bigint') return String(value);

@@ -1,10 +1,11 @@
 import type { FilterOperator, FilterRule } from '../../shared/types';
 
-export type ColumnKind = 'number' | 'text' | 'boolean' | 'date' | 'json' | 'binary' | 'unknown';
+export type ColumnKind = 'number' | 'text' | 'boolean' | 'date' | 'json' | 'binary' | 'enum' | 'uuid' | 'array' | 'unknown';
 
 /** Text form of a cell. The driver can return dates, JSON objects and bytes, not just primitives. */
 export function formatCell(value: unknown): string {
   if (value === null || value === undefined) return 'NULL';
+  if (typeof value === 'boolean') return value ? 'true' : 'false';
   if (value instanceof Date) return Number.isNaN(value.getTime()) ? String(value) : value.toISOString();
   if (value instanceof Uint8Array) {
     const hex = Array.from(value.slice(0, 32), (b) => b.toString(16).padStart(2, '0')).join('');
@@ -16,11 +17,14 @@ export function formatCell(value: unknown): string {
 
 export function kindFromTypeName(typeName: string): ColumnKind {
   const t = typeName.toLowerCase();
+  if (/tinyint\(1\)|bool|bit\b/.test(t)) return 'boolean';
   if (/int|numeric|decimal|real|double|float|money|serial/.test(t)) return 'number';
-  if (/bool|bit\b/.test(t)) return 'boolean';
   if (/date|time|year/.test(t)) return 'date';
   if (/json/.test(t)) return 'json';
   if (/bytea|blob|binary/.test(t)) return 'binary';
+  if (/enum/.test(t)) return 'enum';
+  if (/uuid/.test(t)) return 'uuid';
+  if (/\[\]|array/.test(t)) return 'array';
   return 'text';
 }
 
@@ -33,9 +37,13 @@ export function inferColumnKind(rows: unknown[][], index: number): ColumnKind {
     if (typeof value === 'boolean') return 'boolean';
     if (value instanceof Date) return 'date';
     if (value instanceof Uint8Array) return 'binary';
+    if (Array.isArray(value)) return 'array';
     if (typeof value === 'object') return 'json';
-    if (/^-?\d+(\.\d+)?$/.test(String(value))) return 'number';
-    if (/^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2})?/.test(String(value))) return 'date';
+    const s = String(value);
+    if (/^(true|false)$/i.test(s)) return 'boolean';
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)) return 'uuid';
+    if (/^-?\d+(\.\d+)?$/.test(s)) return 'number';
+    if (/^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2})?/.test(s)) return 'date';
     return 'text';
   }
   return 'unknown';

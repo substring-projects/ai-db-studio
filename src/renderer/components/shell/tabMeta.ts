@@ -1,4 +1,4 @@
-import { Cable, FileCode2, Layers, MessageSquare, Rows3, Settings, Table2 } from 'lucide-react';
+import { Cable, FileCode2, Layers, MessageSquare, Network, Rows3, Settings, Table2 } from 'lucide-react';
 import type { WorkspaceTab } from '../../context/WorkspaceContext';
 import type { SqlDraft } from '../../../shared/types';
 import type { Conversation } from '../../context/ChatContext';
@@ -11,6 +11,8 @@ export function tabIcon(tab: WorkspaceTab): React.ElementType {
       return Table2;
     case 'structure':
       return Layers;
+    case 'er':
+      return Network;
     case 'ai':
       return MessageSquare;
     case 'result':
@@ -33,6 +35,8 @@ export function tabTitle(tab: WorkspaceTab, drafts: SqlDraft[], conversations: C
       return qualified(tab.table, tab.schema);
     case 'structure':
       return `${qualified(tab.table, tab.schema)} · structure`;
+    case 'er':
+      return tab.schema ? `ER Diagram · ${tab.schema}` : 'ER Diagram';
     case 'ai':
       return conversations.find((c) => c.id === tab.conversationId)?.title ?? 'AI Assistant';
     case 'result':

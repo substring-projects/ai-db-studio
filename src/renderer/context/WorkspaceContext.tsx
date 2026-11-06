@@ -8,6 +8,7 @@ export type WorkspaceTab =
   | { id: string; kind: 'sql'; draftId: string }
   | { id: string; kind: 'table'; profileId: string; table: string; schema?: string; objectType: DbTable['type'] }
   | { id: string; kind: 'structure'; profileId: string; table: string; schema?: string }
+  | { id: string; kind: 'er'; profileId: string; schema?: string }
   | { id: string; kind: 'ai'; conversationId: string }
   | { id: string; kind: 'result'; title: string; profileId?: string; sql?: string; result: QueryResult }
   | { id: string; kind: 'connections' }
@@ -60,6 +61,7 @@ interface WorkspaceContextType {
   openDraft: (draftId: string) => void;
   openTableData: (profileId: string, table: DbTable) => void;
   openStructure: (profileId: string, table: DbTable) => void;
+  openErDiagram: (profileId: string, schema?: string) => void;
   openChat: (conversationId: string) => void;
   openResultTab: (title: string, result: QueryResult, sql?: string, profileId?: string) => void;
   openSingleton: (kind: 'connections' | 'settings') => void;
@@ -279,6 +281,16 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       focusOrAdd(
         (t) => t.kind === 'structure' && t.profileId === profileId && t.table === table.name && t.schema === table.schema,
         () => ({ id: createId('tab'), kind: 'structure', profileId, table: table.name, schema: table.schema })
+      );
+    },
+    [focusOrAdd]
+  );
+
+  const openErDiagram = useCallback(
+    (profileId: string, schema?: string) => {
+      focusOrAdd(
+        (t) => t.kind === 'er' && t.profileId === profileId && t.schema === schema,
+        () => ({ id: createId('tab'), kind: 'er', profileId, schema }) as WorkspaceTab
       );
     },
     [focusOrAdd]
@@ -550,6 +562,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       openDraft,
       openTableData,
       openStructure,
+      openErDiagram,
       openChat,
       openResultTab,
       openSingleton,
@@ -593,6 +606,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       openDraft,
       openTableData,
       openStructure,
+      openErDiagram,
       openChat,
       openResultTab,
       openSingleton,

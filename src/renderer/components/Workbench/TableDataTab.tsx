@@ -1,13 +1,25 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Cable, Layers, SlidersHorizontal } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Cable,
+  ExternalLink,
+  Layers,
+  Link2,
+  SlidersHorizontal,
+} from 'lucide-react';
 import { cleanError, useStudio } from '../../context/StudioContext';
 import { useSchema } from '../../context/SchemaContext';
 import { useWorkspace, WorkspaceTab } from '../../context/WorkspaceContext';
-import { FilterRule, QueryResult } from '../../../shared/types';
+import { FilterRule, ForeignKey, QueryResult } from '../../../shared/types';
 import { columnKey, qualifiedName, rowWhereClause } from '../../lib/sql';
 import { createId, formatCount, formatDuration, pluralize, prefs } from '../../lib/utils';
+import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { EmptyState } from '../ui/feedback';
+import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Tooltip } from '../ui/tooltip';
 import { AdvancedFilterModal } from '../Modals/AdvancedFilterModal';
@@ -19,14 +31,15 @@ const PAGE_SIZES = [50, 100, 250, 500, 1000];
 
 export const TableDataTab: React.FC<{ tab: Extract<WorkspaceTab, { kind: 'table' }>; active: boolean }> = ({ tab, active }) => {
   const { profiles, connectionStates, connectProfile } = useStudio();
-  const { schemas } = useSchema();
-  const { appendLog, recordRun, runSql, openStructure } = useWorkspace();
+  const { schemas, loadStructure } = useSchema();
+  const { appendLog, recordRun, runSql, openStructure, openTableData } = useWorkspace();
 
   const profile = profiles.find((p) => p.id === tab.profileId);
   const connected = connectionStates[tab.profileId]?.state === 'connected';
   const columnMeta = schemas[tab.profileId]?.columns[columnKey(tab.table, tab.schema)];
   const isView = tab.objectType === 'VIEW';
 
+  const [foreignKeys, setForeignKeys] = useState<ForeignKey[]>([]);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSizeState] = useState<number>(() => prefs.get('studio:pageSize', 100));
   const [sort, setSort] = useState<ServerControls['sort']>(null);
@@ -41,6 +54,13 @@ export const TableDataTab: React.FC<{ tab: Extract<WorkspaceTab, { kind: 'table'
   const [editing, setEditing] = useState<{ column: string; value: unknown; row: unknown[] } | null>(null);
 
   const requestSeq = useRef(0);
+
+  useEffect(() => {
+    if (!connected || isView) return;
+    loadStructure(tab.profileId, tab.table, tab.schema)
+      .then((s) => setForeignKeys(s.foreignKeys || []))
+      .catch(() => undefined);
+  }, [connected, isView, loadStructure, tab.profileId, tab.table, tab.schema]);
 
   const load = useCallback(async () => {
     if (!connected) return;
@@ -223,6 +243,42 @@ export const TableDataTab: React.FC<{ tab: Extract<WorkspaceTab, { kind: 'table'
 
   const toolbarExtra = (
     <>
+      {foreignKeys.length > 0 && (
+        <Popover>
+          <Tooltip content={`${foreignKeys.length} foreign key relationships`}>
+            <PopoverTrigger asChild>
+              <Button variant="quiet" size="sm" className="h-7 gap-1 text-2xs text-sky-600 dark:text-sky-400 font-medium">
+                <Link2 className="size-3" /> Foreign keys
+                <Badge variant="outline" className="px-1 py-0 text-[10px] text-sky-600 dark:text-sky-400 border-sky-500/30">
+                  {foreignKeys.length}
+                </Badge>
+              </Button>
+            </PopoverTrigger>
+          </Tooltip>
+          <PopoverContent className="w-80 p-2 font-sans text-xs">
+            <p className="font-semibold text-2xs uppercase tracking-wider text-muted-foreground mb-2 px-1">Foreign Keys</p>
+            <div className="space-y-1.5 max-h-60 overflow-y-auto">
+              {foreignKeys.map((fk) => (
+                <div key={fk.name} className="flex items-center justify-between gap-2 p-1.5 rounded-md bg-secondary/50 border border-border/50 text-xxs">
+                  <div className="min-w-0">
+                    <span className="font-mono font-medium text-foreground">{fk.column}</span>
+                    <span className="text-muted-foreground mx-1">→</span>
+                    <span className="font-mono text-primary font-medium">{fk.refTable}.{fk.refColumn}</span>
+                  </div>
+                  <Button
+                    variant="quiet"
+                    size="icon-xs"
+                    title={`Open ${fk.refTable}`}
+                    onClick={() => openTableData(tab.profileId, { name: fk.refTable, schema: tab.schema, type: 'TABLE' })}
+                  >
+                    <ExternalLink className="size-3" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
+      )}
       <Tooltip content="Advanced filters">
         <Button
           variant="quiet"
@@ -254,12 +310,14 @@ export const TableDataTab: React.FC<{ tab: Extract<WorkspaceTab, { kind: 'table'
         loading={loading}
         error={error}
         columnMeta={columnMeta}
+        foreignKeys={foreignKeys}
         fileBase={tab.table}
         server={server}
         onRefresh={reload}
         onEditCell={isView ? undefined : (column, value, row) => setEditing({ column, value, row })}
         onInsertRow={isView ? undefined : () => setInsertOpen(true)}
         onDeleteRows={isView ? undefined : deleteRows}
+        onOpenReferencedRow={(refTable) => openTableData(tab.profileId, { name: refTable, schema: tab.schema, type: 'TABLE' })}
         toolbarExtra={toolbarExtra}
         footer={footer}
       />
@@ -294,6 +352,7 @@ export const TableDataTab: React.FC<{ tab: Extract<WorkspaceTab, { kind: 'table'
           initialValue={editing.value}
           target={rowWhereClause(profile.engine, result.columns, editing.row, columnMeta ?? [])}
           engine={profile.engine}
+          columnType={columnMeta?.find((c) => c.name.toLowerCase() === editing.column.toLowerCase())?.typeName}
           onSave={runWrite}
           onClose={() => setEditing(null)}
         />

@@ -1,10 +1,14 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, CircleSlash, Info, ListTree, Rows3, Terminal, Timer, Trash2 } from 'lucide-react';
-import { LogEntry, PanelView, RunState, useWorkspace } from '../../context/WorkspaceContext';
+import { LogEntry, PanelView, RunState, WorkspaceTab, useWorkspace } from '../../context/WorkspaceContext';
 import { useStudio } from '../../context/StudioContext';
+import { useSchema } from '../../context/SchemaContext';
+import { ForeignKey } from '../../../shared/types';
 import { cn, formatCount, formatDuration, pluralize } from '../../lib/utils';
-import { engineLabel } from '../../lib/sql';
+import { columnKey, engineLabel, extractTableNameFromSql, qualifiedName, rowWhereClause } from '../../lib/sql';
 import { QueryResultsGrid } from '../Workbench/QueryResultsGrid';
+import { EditCellModal } from '../Modals/EditCellModal';
+import { InsertRowModal } from '../Modals/InsertRowModal';
 import { SqlCode } from '../Workbench/SqlCode';
 import { Button } from '../ui/button';
 import { EmptyState } from '../ui/feedback';
@@ -135,6 +139,124 @@ const StatsView: React.FC<{ run?: RunState; tabIsQuery: boolean }> = ({ run, tab
   );
 };
 
+const SqlTabResultGrid: React.FC<{
+  tab: WorkspaceTab;
+  tabRun?: RunState;
+  visible: boolean;
+}> = ({ tab, tabRun, visible }) => {
+  const { profiles, openDangerModal, showToast } = useStudio();
+  const { schemas, loadStructure } = useSchema();
+  const { cancelRun, runSql, openResultTab, openTableData } = useWorkspace();
+
+  const [editing, setEditing] = useState<{ column: string; value: unknown; row: unknown[] } | null>(null);
+  const [insertOpen, setInsertOpen] = useState(false);
+  const [foreignKeys, setForeignKeys] = useState<ForeignKey[]>([]);
+
+  const profile = tabRun?.profileId ? profiles.find((p) => p.id === tabRun.profileId) : undefined;
+  const tableInfo = useMemo(() => (tabRun?.sql ? extractTableNameFromSql(tabRun.sql) : null), [tabRun?.sql]);
+  const columnMeta =
+    tableInfo && tabRun?.profileId
+      ? schemas[tabRun.profileId]?.columns[columnKey(tableInfo.table, tableInfo.schema)]
+      : undefined;
+
+  useEffect(() => {
+    if (!tabRun?.profileId || !tableInfo) {
+      setForeignKeys([]);
+      return;
+    }
+    loadStructure(tabRun.profileId, tableInfo.table, tableInfo.schema)
+      .then((s) => setForeignKeys(s.foreignKeys || []))
+      .catch(() => undefined);
+  }, [loadStructure, tabRun?.profileId, tableInfo]);
+
+  if (!tabRun) return null;
+
+  const qualifiedTable = tableInfo ? qualifiedName(profile?.engine, tableInfo.table, tableInfo.schema) : '';
+
+  const runWrite = (sql: string) => {
+    const originalSql = tabRun.sql;
+    runSql(tab.id, tabRun.profileId, sql, {
+      background: true,
+      onSuccess: () => {
+        showToast('Operation completed', 'success');
+        runSql(tab.id, tabRun.profileId, originalSql);
+      },
+    });
+  };
+
+  const handleEditCell = (column: string, value: unknown, row: unknown[]) => {
+    if (!tableInfo) {
+      showToast('Cannot detect table from query. Editing requires a query from a single table.', 'warning');
+      return;
+    }
+    setEditing({ column, value, row });
+  };
+
+  const handleDeleteRows = (rows: unknown[][]) => {
+    if (!tableInfo || !tabRun.result || rows.length === 0) {
+      showToast('Cannot detect table from query. Deleting requires a query from a single table.', 'warning');
+      return;
+    }
+    const clauses = rows.map((row) => rowWhereClause(profile?.engine, tabRun.result!.columns, row, columnMeta ?? []));
+    const where =
+      clauses.length === 1
+        ? clauses[0].where
+        : `WHERE ${clauses.map((c) => `(${c.where.replace(/^WHERE /, '')})`).join('\n   OR ')}`;
+    runWrite(`DELETE FROM ${qualifiedTable}\n${where};`);
+  };
+
+  return (
+    <div className={cn('h-full', visible ? 'block' : 'hidden')}>
+      <QueryResultsGrid
+        result={tabRun.result ?? null}
+        loading={tabRun.status === 'running'}
+        error={tabRun.status === 'error' ? tabRun.error ?? 'Query failed' : null}
+        notice={tabRun.status === 'cancelled' ? 'Query cancelled. Showing the previous result.' : undefined}
+        columnMeta={columnMeta}
+        foreignKeys={foreignKeys}
+        fileBase="query-results"
+        onCancel={() => cancelRun(tab.id)}
+        onRefresh={() => runSql(tab.id, tabRun.profileId, tabRun.sql)}
+        onEditCell={tableInfo ? handleEditCell : undefined}
+        onDeleteRows={tableInfo ? handleDeleteRows : undefined}
+        onInsertRow={tableInfo && columnMeta ? () => setInsertOpen(true) : undefined}
+        onOpenReferencedRow={(refTable) =>
+          tabRun?.profileId &&
+          openTableData(tabRun.profileId, { name: refTable, schema: tableInfo?.schema, type: 'TABLE' })
+        }
+        onOpenInTab={
+          tabRun.result && !tabRun.result.isCommand
+            ? () => openResultTab('Result', tabRun.result!, tabRun.sql, tabRun.profileId)
+            : undefined
+        }
+      />
+      {editing && tabRun.result && tableInfo && (
+        <EditCellModal
+          tableName={tableInfo.table}
+          qualifiedTable={qualifiedTable}
+          columnName={editing.column}
+          initialValue={editing.value}
+          target={rowWhereClause(profile?.engine, tabRun.result.columns, editing.row, columnMeta ?? [])}
+          engine={profile?.engine}
+          columnType={columnMeta?.find((c) => c.name.toLowerCase() === editing.column.toLowerCase())?.typeName}
+          onSave={runWrite}
+          onClose={() => setEditing(null)}
+        />
+      )}
+      {insertOpen && columnMeta && tableInfo && profile && (
+        <InsertRowModal
+          tableName={tableInfo.table}
+          qualifiedTable={qualifiedTable}
+          columns={columnMeta}
+          engine={profile.engine}
+          onInsert={runWrite}
+          onClose={() => setInsertOpen(false)}
+        />
+      )}
+    </div>
+  );
+};
+
 export const BottomPanel: React.FC = () => {
   const { panelOpen, togglePanel, setPanelOpen, panelView, setPanelView, activeTab, runs, tabs, runSql, cancelRun, openResultTab, activateTab } = useWorkspace();
   const run = activeTab ? runs[activeTab.id] : undefined;
@@ -189,28 +311,14 @@ export const BottomPanel: React.FC = () => {
           {!tabIsQuery && <NoRun tabIsQuery={false} />}
           {tabIsQuery && !run && <NoRun tabIsQuery />}
           {/* One grid per SQL tab stays mounted so its sort, filter and scroll survive tab switches. */}
-          {sqlTabs.map((tab) => {
-            const tabRun = runs[tab.id];
-            const visible = tab.id === activeTab?.id;
-            return (
-              <div key={tab.id} className={cn('h-full', visible ? 'block' : 'hidden')}>
-                <QueryResultsGrid
-                  result={tabRun.result ?? null}
-                  loading={tabRun.status === 'running'}
-                  error={tabRun.status === 'error' ? tabRun.error ?? 'Query failed' : null}
-                  notice={tabRun.status === 'cancelled' ? 'Query cancelled. Showing the previous result.' : undefined}
-                  fileBase="query-results"
-                  onCancel={() => cancelRun(tab.id)}
-                  onRefresh={() => runSql(tab.id, tabRun.profileId, tabRun.sql)}
-                  onOpenInTab={
-                    tabRun.result && !tabRun.result.isCommand
-                      ? () => openResultTab('Result', tabRun.result!, tabRun.sql, tabRun.profileId)
-                      : undefined
-                  }
-                />
-              </div>
-            );
-          })}
+          {sqlTabs.map((tab) => (
+            <SqlTabResultGrid
+              key={tab.id}
+              tab={tab}
+              tabRun={runs[tab.id]}
+              visible={tab.id === activeTab?.id}
+            />
+          ))}
         </div>
         {panelView === 'messages' && <MessagesView run={run} tabIsQuery={tabIsQuery} />}
         {panelView === 'log' && <LogView />}

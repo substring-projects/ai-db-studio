@@ -14,6 +14,7 @@ import {
   Link2,
   ListTree,
   Loader2,
+  Network,
   Pencil,
   Plus,
   RefreshCw,
@@ -82,7 +83,7 @@ export const DatabaseExplorer: React.FC = () => {
     showToast,
   } = useStudio();
   const { schemas, structures, loadSchema, loadStructure } = useSchema();
-  const { openTableData, openStructure, newQuery, runSql, tabs, closeTab, openSingleton } = useWorkspace();
+  const { openTableData, openStructure, openErDiagram, newQuery, runSql, tabs, closeTab, openSingleton } = useWorkspace();
 
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(prefs.get<string[]>('studio:tree', [])));
   const [search, setSearch] = useState('');
@@ -432,6 +433,17 @@ export const DatabaseExplorer: React.FC = () => {
               <RefreshCw className={cn(activeProfile && schemas[activeProfile.id]?.status === 'loading' && 'animate-spin')} />
             </Button>
           </Tooltip>
+          <Tooltip content="View ER diagram">
+            <Button
+              variant="quiet"
+              size="icon-sm"
+              aria-label="View ER diagram"
+              disabled={!activeProfile || connectionStates[activeProfile.id]?.state !== 'connected'}
+              onClick={() => activeProfile && openErDiagram(activeProfile.id)}
+            >
+              <Network />
+            </Button>
+          </Tooltip>
           <DropdownMenu>
             <Tooltip content="Manage connections">
               <DropdownMenuTrigger asChild>
@@ -633,6 +645,9 @@ export const DatabaseExplorer: React.FC = () => {
                   <ContextMenuItem onSelect={() => loadSchema(menuNode.profile.id)}>
                     <RefreshCw /> Refresh schema
                   </ContextMenuItem>
+                  <ContextMenuItem onSelect={() => openErDiagram(menuNode.profile.id)}>
+                    <Network /> View ER diagram
+                  </ContextMenuItem>
                   <ContextMenuItem onSelect={() => setCreateFor({ profile: menuNode.profile })}>
                     <Plus /> Create table…
                   </ContextMenuItem>
@@ -726,6 +741,11 @@ export const DatabaseExplorer: React.FC = () => {
               <ContextMenuItem onSelect={() => loadSchema(menuNode.profile.id)}>
                 <RefreshCw /> Refresh schema
               </ContextMenuItem>
+              {menuNode.kind === 'schema' && (
+                <ContextMenuItem onSelect={() => openErDiagram(menuNode.profile.id, menuNode.name)}>
+                  <Network /> View ER diagram
+                </ContextMenuItem>
+              )}
             </ContextMenuContent>
           )}
           {menuNode?.kind === 'item' && (

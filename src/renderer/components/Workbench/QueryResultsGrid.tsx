@@ -15,6 +15,7 @@ import {
   ArrowUp,
   Binary,
   Braces,
+  Brackets,
   CalendarClock,
   CheckCircle2,
   CircleHelp,
@@ -25,6 +26,8 @@ import {
   Filter,
   Hash,
   Key,
+  Link2,
+  ListOrdered,
   Pencil,
   Plus,
   RefreshCw,
@@ -36,7 +39,8 @@ import {
   Type,
   X,
 } from 'lucide-react';
-import { FilterOperator, FilterRule, QueryResult, TableColumn } from '../../../shared/types';
+import { FilterOperator, FilterRule, ForeignKey, QueryResult, TableColumn } from '../../../shared/types';
+import { Badge } from '../ui/badge';
 import {
   ColumnKind,
   FILTER_OPERATORS,
@@ -102,6 +106,8 @@ interface QueryResultsGridProps {
   notice?: string;
   /** Column metadata when the rows come from a known table. */
   columnMeta?: TableColumn[];
+  /** Foreign keys associated with the current table. */
+  foreignKeys?: ForeignKey[];
   /** Base name for exported files. */
   fileBase: string;
   /** Sorting and filtering happen on the server; otherwise on the rows in memory. */
@@ -112,6 +118,7 @@ interface QueryResultsGridProps {
   onRefresh?: () => void;
   onCancel?: () => void;
   onOpenInTab?: () => void;
+  onOpenReferencedRow?: (refTable: string, refColumn: string, value: unknown) => void;
   toolbarExtra?: React.ReactNode;
   footer?: React.ReactNode;
   /** Slimmer chrome for grids embedded in a chat message. */
@@ -126,6 +133,9 @@ const KIND_ICON: Record<ColumnKind, React.ElementType> = {
   date: CalendarClock,
   json: Braces,
   binary: Binary,
+  enum: ListOrdered,
+  uuid: Key,
+  array: Brackets,
   unknown: CircleHelp,
 };
 
@@ -203,6 +213,7 @@ export const QueryResultsGrid: React.FC<QueryResultsGridProps> = React.memo(
     error,
     notice,
     columnMeta,
+    foreignKeys,
     fileBase,
     server,
     onEditCell,
@@ -211,6 +222,7 @@ export const QueryResultsGrid: React.FC<QueryResultsGridProps> = React.memo(
     onRefresh,
     onCancel,
     onOpenInTab,
+    onOpenReferencedRow,
     toolbarExtra,
     footer,
     embedded = false,
@@ -239,10 +251,17 @@ export const QueryResultsGrid: React.FC<QueryResultsGridProps> = React.memo(
       return map;
     }, [columnMeta]);
 
+    const fkByColName = useMemo(() => {
+      const map = new Map<string, ForeignKey>();
+      foreignKeys?.forEach((fk) => map.set(fk.column.toLowerCase(), fk));
+      return map;
+    }, [foreignKeys]);
+
     const columnInfo = useMemo(
       () =>
         columns.map((name, i) => {
           const meta = metaByName.get(name.toLowerCase());
+          const fk = fkByColName.get(name.toLowerCase());
           const kind = meta ? kindFromTypeName(meta.typeName) : inferColumnKind(rows, i);
           // Width from the header and a sample of values, so most columns need no resizing.
           // The header also holds a type icon, a sort arrow and a filter button.
@@ -250,10 +269,10 @@ export const QueryResultsGrid: React.FC<QueryResultsGridProps> = React.memo(
           for (let r = 0; r < Math.min(rows.length, 40); r += 1) {
             longest = Math.max(longest, formatCell(rows[r][i]).length);
           }
-          const width = Math.max(name.length * 6.8 + 72, longest * 7 + 22);
-          return { name, meta, kind, width: Math.min(360, Math.max(MIN_COLUMN_WIDTH + 24, width)) };
+          const width = Math.max(name.length * 6.8 + (fk ? 96 : 72), longest * 7 + 22);
+          return { name, meta, kind, fk, width: Math.min(360, Math.max(MIN_COLUMN_WIDTH + 24, width)) };
         }),
-      [columns, metaByName, rows]
+      [columns, metaByName, fkByColName, rows]
     );
 
     const tableColumns = useMemo<ColumnDef<Row>[]>(
@@ -464,6 +483,7 @@ export const QueryResultsGrid: React.FC<QueryResultsGridProps> = React.memo(
     const targetRow = menuTarget ? visibleRows[menuTarget.row]?.original : undefined;
     const targetValue = menuTarget && targetRow ? targetRow[menuTarget.col] : undefined;
     const targetColumn = menuTarget ? columns[menuTarget.col] : undefined;
+    const targetColumnInfo = menuTarget ? columnInfo[menuTarget.col] : undefined;
     const rowsForDelete = selected.size > 0 && menuTarget && selected.has(menuTarget.row) ? selectedRows() : targetRow ? [targetRow] : [];
 
     if (error) {
@@ -668,10 +688,20 @@ export const QueryResultsGrid: React.FC<QueryResultsGridProps> = React.memo(
                         >
                           {info.meta?.primaryKey ? (
                             <Key aria-label="Primary key" className="size-3 shrink-0 text-warning" />
+                          ) : info.fk ? (
+                            <Link2 aria-label="Foreign key" className="size-3 shrink-0 text-sky-500" />
                           ) : (
                             <Icon aria-label={info.kind} className="size-3 shrink-0 text-muted-foreground/80" />
                           )}
                           <span className="min-w-0 truncate">{info.name}</span>
+                          {info.fk && (
+                            <span
+                              title={`Foreign Key references ${info.fk.refTable}.${info.fk.refColumn}`}
+                              className="ml-0.5 rounded px-1 py-0 text-[9px] font-semibold tracking-wide text-sky-500 bg-sky-500/10 shrink-0 select-none"
+                            >
+                              FK
+                            </span>
+                          )}
                           {sort === 'asc' && <ArrowUp aria-hidden className="size-3 shrink-0 text-primary" />}
                           {sort === 'desc' && <ArrowDown aria-hidden className="size-3 shrink-0 text-primary" />}
                         </button>
@@ -762,6 +792,43 @@ export const QueryResultsGrid: React.FC<QueryResultsGridProps> = React.memo(
                               >
                                 {isNull ? (
                                   <span className="select-none font-sans text-2xs italic text-muted-foreground/70">NULL</span>
+                                ) : (info.kind === 'boolean' || typeof value === 'boolean' || Boolean(info.meta?.typeName && /bool|bit|tinyint\(1\)/i.test(info.meta.typeName))) ? (
+                                  <Badge
+                                    variant="outline"
+                                    className={cn(
+                                      'font-mono text-[10px] px-1 py-0 h-4 border font-medium leading-none select-none',
+                                      value === true || String(value).toLowerCase() === 'true' || value === 1 || String(value) === '1' || String(value).toLowerCase() === 't'
+                                        ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                                        : 'border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                                    )}
+                                  >
+                                    {value === true || String(value).toLowerCase() === 'true' || value === 1 || String(value) === '1' || String(value).toLowerCase() === 't' ? 'true' : 'false'}
+                                  </Badge>
+                                ) : info.kind === 'enum' ? (
+                                  <Badge variant="outline" className="font-mono text-[10px] px-1.5 py-0 h-4 border-primary/25 bg-primary/10 text-primary">
+                                    {String(value)}
+                                  </Badge>
+                                ) : info.kind === 'json' || (typeof value === 'object' && value !== null) ? (
+                                  <span className="truncate font-mono text-2xs text-muted-foreground/90 bg-muted/40 px-1 py-0.5 rounded border border-border/40">
+                                    {formatCell(value)}
+                                  </span>
+                                ) : info.fk && value !== '' ? (
+                                  <span
+                                    className={cn(
+                                      'group/fk inline-flex items-center gap-1 truncate',
+                                      onOpenReferencedRow && 'cursor-pointer hover:text-primary hover:underline'
+                                    )}
+                                    onClick={(e) => {
+                                      if (onOpenReferencedRow) {
+                                        e.stopPropagation();
+                                        onOpenReferencedRow(info.fk!.refTable, info.fk!.refColumn, value);
+                                      }
+                                    }}
+                                    title={onOpenReferencedRow ? `Jump to ${info.fk.refTable} where ${info.fk.refColumn} = ${value}` : `References ${info.fk.refTable}.${info.fk.refColumn}`}
+                                  >
+                                    <span className="truncate">{formatCell(value)}</span>
+                                    <Link2 className="size-2.5 shrink-0 opacity-40 group-hover/fk:opacity-100 text-sky-500" />
+                                  </span>
                                 ) : (
                                   <span className="truncate">{formatCell(value)}</span>
                                 )}
@@ -773,9 +840,10 @@ export const QueryResultsGrid: React.FC<QueryResultsGridProps> = React.memo(
                     })}
                   </div>
                 ) : (
-                  <div className="sticky left-0 w-[min(100%,420px)]">
+                  <div className="sticky left-0 flex w-full items-start justify-start p-6">
                     <EmptyState
                       icon={<Rows3 />}
+                      className="h-auto min-h-0 items-start justify-start p-0 text-left max-w-md"
                       title={filterCount > 0 ? 'No rows match these filters' : 'No rows returned'}
                       description={filterCount > 0 ? 'Change or clear the filters to see more.' : 'The query ran, and the result is empty.'}
                       action={
@@ -825,6 +893,11 @@ export const QueryResultsGrid: React.FC<QueryResultsGridProps> = React.memo(
               <ContextMenuItem onSelect={() => setInspect({ column: targetColumn!, text: formatCell(targetValue) })}>
                 <Eye /> View full value
               </ContextMenuItem>
+              {targetColumnInfo?.fk && onOpenReferencedRow && targetValue !== null && targetValue !== undefined && (
+                <ContextMenuItem onSelect={() => onOpenReferencedRow(targetColumnInfo.fk!.refTable, targetColumnInfo.fk!.refColumn, targetValue)}>
+                  <Link2 className="text-sky-500" /> Jump to {targetColumnInfo.fk.refTable} ({targetColumnInfo.fk.refColumn} = {formatCell(targetValue)})
+                </ContextMenuItem>
+              )}
               <ContextMenuSeparator />
               <ContextMenuItem
                 onSelect={() =>

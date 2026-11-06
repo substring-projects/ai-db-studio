@@ -10,6 +10,7 @@ import { Button } from '../ui/button';
 import { Kbd, Skeleton } from '../ui/feedback';
 import { TableDataTab } from '../Workbench/TableDataTab';
 import { TableStructureView } from '../Workbench/TableStructureView';
+import { ErDiagramView } from '../Workbench/ErDiagramView';
 import { ResultTab } from '../Workbench/ResultTab';
 import { ConnectionsView } from '../Connections/ConnectionsView';
 import { SettingsView } from '../Settings/SettingsView';
@@ -40,6 +41,8 @@ const TabView: React.FC<{ tab: WorkspaceTab; active: boolean }> = ({ tab, active
       return <TableDataTab tab={tab} active={active} />;
     case 'structure':
       return <TableStructureView tab={tab} />;
+    case 'er':
+      return <ErDiagramView tab={tab} />;
     case 'ai':
       return <AiChatView conversationId={tab.conversationId} active={active} />;
     case 'result':
