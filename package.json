@@ -1,6 +1,6 @@
 {
   "name": "ai-db-studio",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Safe, local-first database studio for PostgreSQL and MySQL with AI schema grounding",
   "main": "dist-electron/main.js",
   "type": "module",
