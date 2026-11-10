@@ -49,9 +49,10 @@ import {
 } from '../ui/menu';
 import { ConnectionDropdownContent } from '../shell/ConnectionDropdownContent';
 import { CreateTableModal } from '../Modals/CreateTableModal';
+import { EngineMark } from '../ui/engine-mark';
 import { CreateCollectionModal } from '../Modals/CreateCollectionModal';
 
-const ROW_HEIGHT = 22;
+const ROW_HEIGHT = 24;
 const INDENT = 12;
 const BACKGROUND_TAB = 'explorer';
 
@@ -427,7 +428,7 @@ export const DatabaseExplorer: React.FC = () => {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex h-8 shrink-0 items-center justify-between pl-3 pr-1.5">
+      <div className="flex h-10 shrink-0 items-center justify-between pl-3.5 pr-2">
         <h2 className="section-label">Database Explorer</h2>
         <div className="flex items-center gap-0.5">
           <Tooltip content="Add connection">
@@ -491,7 +492,7 @@ export const DatabaseExplorer: React.FC = () => {
         <EmptyState
           icon={<Cable />}
           title="No connections yet"
-          description="Add a PostgreSQL or MySQL connection to browse its tables."
+          description="Add a PostgreSQL, MySQL or MongoDB connection to browse its tables and collections."
           action={
             <Button size="sm" onClick={() => openEditProfileModal(null)}>
               <Plus /> Add connection
@@ -535,9 +536,7 @@ export const DatabaseExplorer: React.FC = () => {
                       <>
                         <StatusDot status={state} className="mx-[4px]" />
                         <span className={cn('min-w-0 truncate', isActiveConnection && 'font-medium')}>{node.profile.name}</span>
-                        <Badge mono variant="outline" title={engineLabel(node.profile.engine)} className="px-0.5">
-                          {engineInfo(node.profile.engine).badge}
-                        </Badge>
+                        <EngineMark engine={node.profile.engine} size="xs" />
                         {state === 'connecting' && <Loader2 className="ml-auto mr-1 size-3 shrink-0 animate-spin text-muted-foreground" />}
                         {state === 'connected' && schemas[node.profile.id]?.status === 'ready' && (
                           <span className="ml-auto pl-1 pr-2 text-2xs tabular-nums text-muted-foreground">
@@ -623,7 +622,7 @@ export const DatabaseExplorer: React.FC = () => {
                         if (node.kind === 'table') openTableData(node.profile.id, node.table);
                       }}
                       className={cn(
-                        'absolute left-0 top-0 flex w-full items-center gap-1 pr-1 text-xs transition-colors duration-75',
+                        'absolute inset-x-1.5 top-0 flex items-center gap-1 rounded-md pr-1 text-xs transition-colors duration-75',
                         focused ? 'bg-accent' : 'hover:bg-accent/60'
                       )}
                     >

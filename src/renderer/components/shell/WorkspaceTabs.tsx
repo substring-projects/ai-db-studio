@@ -68,15 +68,15 @@ const TabButton: React.FC<{ tab: WorkspaceTab; index: number; count: number }> =
             moveTab(e.dataTransfer.getData('text/studio-tab'), tab.id);
           }}
           className={cn(
-            'group relative flex h-full max-w-52 shrink-0 items-center gap-1.5 border-r border-border pl-2.5 pr-1 text-xs transition-colors duration-75 focus-visible:outline-offset-[-2px]',
-            active ? 'bg-background text-foreground' : 'bg-chrome text-muted-foreground hover:bg-accent hover:text-foreground',
+            'group relative flex h-full min-w-28 max-w-56 shrink-0 items-center gap-2 border-r border-border pl-3 pr-1.5 text-xs transition-colors duration-75 focus-visible:outline-offset-[-2px]',
+            active ? 'bg-background font-medium text-foreground' : 'bg-chrome text-muted-foreground hover:bg-sidebar hover:text-foreground',
             dropTarget && 'bg-accent'
           )}
         >
-          {active && <span className="absolute inset-x-0 top-0 h-px bg-primary" />}
+          {active && <span className="absolute inset-x-0 top-0 h-[2px] bg-primary" />}
           {active && <span className="absolute inset-x-0 -bottom-px h-px bg-background" />}
           <Icon className={cn('size-3.5 shrink-0', active ? 'text-primary' : 'text-muted-foreground')} />
-          <span className="min-w-0 truncate">{title}</span>
+          <span className="min-w-0 flex-1 truncate">{title}</span>
           <span className="relative ml-0.5 flex size-5 shrink-0 items-center justify-center">
             {(dirty || running) && (
               <span
@@ -149,7 +149,7 @@ export const WorkspaceTabs: React.FC = () => {
   const { activeProfile } = useStudio();
 
   return (
-    <div className="flex h-[33px] shrink-0 items-stretch border-b border-border bg-chrome">
+    <div className="flex h-9 shrink-0 items-stretch border-b border-border bg-chrome">
       <div
         role="tablist"
         aria-label="Open tabs"

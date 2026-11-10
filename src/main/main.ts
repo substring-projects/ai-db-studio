@@ -16,8 +16,8 @@ const connections = new ConnectionManager();
 let chatAgent: ChatAgentService;
 
 const WINDOW_THEME = {
-  dark: { background: '#111318', symbols: '#98A1AD' },
-  light: { background: '#FFFFFF', symbols: '#667085' },
+  dark: { background: '#121317', symbols: '#949CA8' },
+  light: { background: '#F3F4F6', symbols: '#667085' },
 } as const;
 const TITLE_BAR_HEIGHT = 36;
 

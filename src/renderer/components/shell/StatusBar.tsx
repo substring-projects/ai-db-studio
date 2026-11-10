@@ -12,7 +12,7 @@ import {
 } from '../ui/menu';
 import { ConnectionDropdownContent } from './ConnectionDropdownContent';
 
-const statusItem = 'flex h-full items-center gap-1 px-1.5 text-2xs text-muted-foreground';
+const statusItem = 'flex h-full items-center gap-1.5 px-2 text-2xs text-muted-foreground';
 const statusButton = cn(statusItem, 'no-drag transition-colors duration-75 hover:bg-accent hover:text-foreground focus-visible:outline-offset-[-2px]');
 
 const CursorPosition: React.FC = () => {
@@ -35,13 +35,13 @@ export const StatusBar: React.FC = () => {
   const run = activeTab ? runs[activeTab.id] : undefined;
 
   return (
-    <footer className="flex h-6 shrink-0 items-stretch justify-between overflow-hidden border-t border-border bg-chrome pr-1">
+    <footer className="flex h-[26px] shrink-0 items-stretch justify-between overflow-hidden border-t border-border bg-chrome pr-1">
       <div className="flex min-w-0 items-stretch">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button type="button" className={cn(statusButton, 'pl-2.5')} aria-label={`Connection: ${activeProfile?.name ?? 'none'}, ${stateLabel}`}>
               <StatusDot status={state === 'connected' ? 'connected' : state === 'connecting' ? 'connecting' : state === 'failed' ? 'failed' : 'offline'} />
-              <span className="max-w-44 truncate text-foreground">{activeProfile?.name ?? 'No connection'}</span>
+              <span className="max-w-44 truncate font-medium text-foreground">{activeProfile?.name ?? 'No connection'}</span>
             </button>
           </DropdownMenuTrigger>
           <ConnectionDropdownContent side="top" />
@@ -49,7 +49,9 @@ export const StatusBar: React.FC = () => {
 
         {activeProfile && (
           <>
-            <span className={statusItem}>{engineLabel(activeProfile.engine)}</span>
+            <span className={statusItem}>
+              <span className="rounded border border-border bg-muted px-1 py-px text-[10px] font-medium leading-3">{engineLabel(activeProfile.engine)}</span>
+            </span>
             <span className={cn(statusItem, state === 'failed' && 'text-destructive')}>{stateLabel}</span>
           </>
         )}

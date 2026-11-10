@@ -5,9 +5,9 @@ import { X } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Button, buttonVariants } from './button';
 
-const overlayClasses = 'fixed inset-0 z-50 bg-black/45 animate-overlay-in';
+const overlayClasses = 'fixed inset-0 z-50 bg-black/50 backdrop-blur-[1.5px] animate-overlay-in';
 const contentClasses =
-  'fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[calc(100vw-48px)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-overlay animate-content-in';
+  'fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[calc(100vw-48px)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground shadow-dialog animate-content-in';
 
 export const Dialog = DialogPrimitive.Root;
 export const DialogClose = DialogPrimitive.Close;
@@ -32,12 +32,16 @@ export const DialogContent: React.FC<DialogContentProps> = ({
       className={cn(contentClasses, 'max-w-md', className)}
       {...props}
     >
-      <div className="flex shrink-0 items-start gap-2.5 border-b border-border px-4 py-3">
-        {icon && <span className="mt-0.5 text-muted-foreground [&_svg]:size-4">{icon}</span>}
+      <div className="flex shrink-0 items-start gap-3 border-b border-border px-5 py-3.5">
+        {icon && (
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-muted-foreground [&_svg]:size-4">
+            {icon}
+          </span>
+        )}
         <div className="min-w-0 flex-1">
-          <DialogPrimitive.Title className="truncate text-sm font-semibold leading-5">{title}</DialogPrimitive.Title>
+          <DialogPrimitive.Title className="truncate text-sm font-semibold leading-5 tracking-[-0.005em]">{title}</DialogPrimitive.Title>
           {description ? (
-            <DialogPrimitive.Description className="mt-0.5 text-xxs text-muted-foreground">
+            <DialogPrimitive.Description className="mt-0.5 text-xxs leading-4 text-muted-foreground">
               {description}
             </DialogPrimitive.Description>
           ) : (
@@ -56,12 +60,12 @@ export const DialogContent: React.FC<DialogContentProps> = ({
 );
 
 export const DialogBody: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ className, ...props }) => (
-  <div className={cn('min-h-0 flex-1 overflow-y-auto px-4 py-3', className)} {...props} />
+  <div className={cn('min-h-0 flex-1 overflow-y-auto px-5 py-4', className)} {...props} />
 );
 
 export const DialogFooter: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ className, ...props }) => (
   <div
-    className={cn('flex shrink-0 items-center justify-end gap-2 border-t border-border bg-chrome px-4 py-2.5', className)}
+    className={cn('flex shrink-0 items-center justify-end gap-2 border-t border-border bg-muted/50 px-5 py-3', className)}
     {...props}
   />
 );
@@ -86,8 +90,10 @@ export const AlertDialogContent: React.FC<AlertDialogContentProps> = ({
   <AlertDialogPrimitive.Portal>
     <AlertDialogPrimitive.Overlay className={overlayClasses} />
     <AlertDialogPrimitive.Content className={cn(contentClasses, 'max-w-md', className)} {...props}>
-      <div className="flex shrink-0 items-start gap-2.5 px-4 pt-3.5">
-        {icon && <span className="mt-0.5 [&_svg]:size-4">{icon}</span>}
+      <div className="flex shrink-0 items-start gap-3 px-5 pt-4">
+        {icon && (
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-border bg-muted [&_svg]:size-4">{icon}</span>
+        )}
         <div className="min-w-0 flex-1">
           <AlertDialogPrimitive.Title className="text-sm font-semibold leading-5">{title}</AlertDialogPrimitive.Title>
           <AlertDialogPrimitive.Description className="mt-0.5 text-xs leading-5 text-muted-foreground">

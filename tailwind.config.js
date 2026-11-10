@@ -36,16 +36,21 @@ export default {
         sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Inter', 'system-ui', 'sans-serif'],
         mono: ['"SF Mono"', '"JetBrains Mono"', 'Menlo', 'Consolas', '"DejaVu Sans Mono"', 'monospace'],
       },
+      // A desktop scale: 12px for most interface text, 13px for primary content.
       fontSize: {
-        '2xs': ['10px', '14px'],
-        xxs: ['11px', '16px'],
-        xs: ['12px', '16px'],
-        sm: ['13px', '20px'],
-        base: ['14px', '22px'],
+        '2xs': ['10.5px', '14px'],
+        xxs: ['11.5px', '16px'],
+        xs: ['12.5px', '18px'],
+        sm: ['13.5px', '20px'],
+        base: ['14.5px', '22px'],
+        lg: ['16px', '24px'],
+        xl: ['19px', '26px'],
         '2xl': ['24px', '30px'],
       },
       boxShadow: {
-        overlay: '0 8px 24px -6px hsl(var(--shadow) / 0.28), 0 2px 6px -2px hsl(var(--shadow) / 0.18)',
+        overlay: '0 12px 32px -8px hsl(var(--shadow) / 0.32), 0 3px 8px -3px hsl(var(--shadow) / 0.2)',
+        raised: '0 1px 2px hsl(var(--shadow) / 0.08), 0 1px 1px hsl(var(--shadow) / 0.04)',
+        dialog: '0 24px 64px -12px hsl(var(--shadow) / 0.45), 0 6px 16px -6px hsl(var(--shadow) / 0.25)',
       },
       keyframes: {
         'overlay-in': { from: { opacity: '0' }, to: { opacity: '1' } },

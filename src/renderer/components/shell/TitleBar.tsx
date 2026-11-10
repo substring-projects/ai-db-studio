@@ -14,25 +14,25 @@ export const TitleBar: React.FC = () => {
   return (
     <header
       className={cn(
-        'drag-region relative flex h-9 shrink-0 items-center border-b border-border bg-chrome',
+        'drag-region relative flex h-10 shrink-0 items-center border-b border-border bg-chrome',
         // Leaves room for the native window controls on each platform.
         isMac ? 'pl-[76px] pr-2' : 'pl-2.5 pr-[140px]'
       )}
     >
-      <div className="flex items-center gap-1.5">
-        <img src={logoImg} alt="" className="size-4 rounded-[3px]" />
-        <span className="text-xs font-medium text-foreground">AI DB Studio</span>
+      <div className="flex items-center gap-2">
+        <img src={logoImg} alt="" className="size-5 rounded-md shadow-raised ring-1 ring-border" />
+        <span className="text-xs font-semibold tracking-[-0.01em] text-foreground">AI DB Studio</span>
       </div>
 
       <div className="pointer-events-none absolute inset-x-0 flex justify-center">
         <button
           type="button"
           onClick={() => setPaletteOpen(true)}
-          className="no-drag pointer-events-auto flex h-6 w-[min(38vw,420px)] items-center gap-1.5 rounded-md border border-border bg-background px-2 text-xxs text-muted-foreground transition-colors duration-100 hover:border-input hover:text-foreground"
+          className="no-drag pointer-events-auto flex h-7 w-[min(38vw,440px)] items-center gap-2 rounded-lg border border-border bg-background px-2.5 text-xxs text-muted-foreground shadow-raised transition-colors duration-100 hover:border-input hover:text-foreground"
         >
-          <Search className="size-3" />
+          <Search className="size-3.5" />
           <span className="flex-1 truncate text-left">Search tables, queries and commands</span>
-          <span className="tracking-wide">{shortcutLabel('Mod+K')}</span>
+          <span className="kbd">{shortcutLabel('Mod+K')}</span>
         </button>
       </div>
 

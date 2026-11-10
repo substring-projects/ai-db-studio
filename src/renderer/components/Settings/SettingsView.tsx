@@ -12,7 +12,7 @@ const SHARED_ROWS = 50;
 const Section: React.FC<React.PropsWithChildren<{ title: string; description?: string }>> = ({ title, description, children }) => (
   <section className="grid grid-cols-[180px_minmax(0,1fr)] gap-6 border-t border-border py-5 first:border-t-0">
     <div>
-      <h2 className="text-xs font-medium">{title}</h2>
+      <h2 className="text-xs font-semibold">{title}</h2>
       {description && <p className="mt-0.5 text-xxs leading-4 text-muted-foreground">{description}</p>}
     </div>
     <div className="space-y-3">{children}</div>
@@ -64,9 +64,12 @@ export const SettingsView: React.FC = () => {
 
   return (
     <div className="h-full overflow-y-auto">
-      <form onSubmit={save} className="mx-auto max-w-2xl px-6 py-6">
-        <div className="mb-2 flex items-center justify-between">
-          <h1 className="text-sm font-semibold">Settings</h1>
+      <form onSubmit={save} className="mx-auto max-w-3xl px-8 py-8">
+        <div className="mb-4 flex items-end justify-between gap-4 border-b border-border pb-4">
+          <div>
+            <h1 className="text-lg font-semibold tracking-[-0.01em]">Settings</h1>
+            <p className="mt-0.5 text-xxs text-muted-foreground">Appearance, the AI assistant and workspace preferences.</p>
+          </div>
           <Button type="submit" size="sm" disabled={!dirty}>
             Save changes
           </Button>

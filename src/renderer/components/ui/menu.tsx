@@ -5,16 +5,16 @@ import { Check, ChevronRight } from 'lucide-react';
 import { cn, shortcutLabel } from '../../lib/utils';
 
 const surface =
-  'z-50 min-w-40 overflow-hidden rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-overlay animate-menu-in';
+  'z-50 min-w-44 overflow-hidden rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-overlay animate-menu-in';
 const item =
-  'relative flex h-6 cursor-default select-none items-center gap-2 rounded-sm px-1.5 text-xs outline-none transition-colors duration-75 data-[highlighted]:bg-accent data-[disabled]:opacity-45 data-[disabled]:pointer-events-none [&_svg]:size-3.5 [&_svg]:shrink-0 [&_svg]:text-muted-foreground';
+  'relative flex h-7 cursor-default select-none items-center gap-2 rounded-md px-2 text-xs outline-none transition-colors duration-75 data-[highlighted]:bg-accent data-[disabled]:opacity-45 data-[disabled]:pointer-events-none [&_svg]:size-3.5 [&_svg]:shrink-0 [&_svg]:text-muted-foreground';
 const destructiveItem =
   'text-destructive data-[highlighted]:bg-destructive/10 data-[highlighted]:text-destructive [&_svg]:text-destructive';
 const separator = '-mx-1 my-1 h-px bg-border';
-const label = 'px-1.5 py-1 text-2xs font-semibold uppercase tracking-[0.06em] text-muted-foreground';
+const label = 'px-2 pb-1 pt-1.5 text-2xs font-semibold uppercase tracking-[0.08em] text-muted-foreground';
 
 export const MenuShortcut: React.FC<{ keys: string }> = ({ keys }) => (
-  <span className="ml-auto pl-4 font-sans text-2xs tracking-wide text-muted-foreground">{shortcutLabel(keys)}</span>
+  <span className="ml-auto pl-6 font-sans text-2xs tracking-wide text-muted-foreground/80">{shortcutLabel(keys)}</span>
 );
 
 interface ItemExtras {

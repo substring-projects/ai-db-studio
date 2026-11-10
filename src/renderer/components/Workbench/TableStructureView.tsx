@@ -19,10 +19,10 @@ const SimpleTable: React.FC<{ headers: string[]; rows: React.ReactNode[][]; empt
     <EmptyState title={empty} />
   ) : (
     <table className="w-full border-collapse text-left text-xs">
-      <thead className="sticky top-0 z-10 bg-chrome">
+      <thead className="sticky top-0 z-10 bg-sidebar shadow-raised">
         <tr>
           {headers.map((h) => (
-            <th key={h} className="h-[27px] whitespace-nowrap border-b border-r border-border px-2.5 text-xxs font-medium last:border-r-0">
+            <th key={h} className="h-[30px] whitespace-nowrap border-b border-r border-border px-3 text-xxs font-semibold text-foreground/90 last:border-r-0">
               {h}
             </th>
           ))}
@@ -30,9 +30,9 @@ const SimpleTable: React.FC<{ headers: string[]; rows: React.ReactNode[][]; empt
       </thead>
       <tbody className="selectable">
         {rows.map((row, r) => (
-          <tr key={r} className="transition-colors duration-75 hover:bg-accent/60">
+          <tr key={r} className="transition-colors duration-75 even:bg-muted/45 hover:bg-accent/70">
             {row.map((cell, c) => (
-              <td key={c} className="h-6 whitespace-nowrap border-b border-r border-border/50 px-2.5 last:border-r-0">
+              <td key={c} className="h-[30px] whitespace-nowrap border-b border-r border-border/50 px-3 last:border-r-0">
                 {cell}
               </td>
             ))}
@@ -124,10 +124,12 @@ export const TableStructureView: React.FC<{ tab: Extract<WorkspaceTab, { kind: '
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex shrink-0 items-center gap-2.5 px-3 py-2">
-        <Table2 className="size-4 shrink-0 text-muted-foreground" />
+      <div className="flex shrink-0 items-center gap-3 px-4 pb-2.5 pt-3.5">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground shadow-raised">
+          <Table2 className="size-[18px]" />
+        </span>
         <div className="min-w-0">
-          <h1 className="selectable truncate font-mono text-sm font-medium">{structure.tableName}</h1>
+          <h1 className="selectable truncate font-mono text-base font-semibold">{structure.tableName}</h1>
           <p className="text-xxs text-muted-foreground">
             {[
               metadata?.schema,
@@ -139,16 +141,16 @@ export const TableStructureView: React.FC<{ tab: Extract<WorkspaceTab, { kind: '
               .join(' · ')}
           </p>
         </div>
-        <div className="ml-auto flex shrink-0 items-center gap-0.5">
+        <div className="ml-auto flex shrink-0 items-center gap-1.5">
           <Button
-            variant="quiet"
+            variant="outline"
             size="sm"
             onClick={() => openTableData(tab.profileId, { name: tab.table, schema: tab.schema, type: 'TABLE' })}
           >
             <Rows3 /> View data
           </Button>
           <Button
-            variant="quiet"
+            variant="outline"
             size="sm"
             onClick={() =>
               newQuery(browseQuery(profile?.engine, tab.table, tab.schema), tab.table, tab.profileId)

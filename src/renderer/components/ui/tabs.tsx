@@ -10,7 +10,7 @@ export const TabsList: React.FC<React.ComponentPropsWithoutRef<typeof TabsPrimit
   ...props
 }) => (
   <TabsPrimitive.List
-    className={cn('flex h-8 shrink-0 items-stretch gap-3 border-b border-border px-3', className)}
+    className={cn('flex h-9 shrink-0 items-stretch gap-4 border-b border-border px-3', className)}
     {...props}
   />
 );
@@ -21,7 +21,7 @@ export const TabsTrigger: React.FC<React.ComponentPropsWithoutRef<typeof TabsPri
 }) => (
   <TabsPrimitive.Trigger
     className={cn(
-      '-mb-px flex items-center gap-1.5 border-b-[1.5px] border-transparent px-0.5 text-xs text-muted-foreground transition-colors duration-100 hover:text-foreground data-[state=active]:border-primary data-[state=active]:text-foreground focus-visible:outline-offset-0 [&_svg]:size-3.5',
+      '-mb-px flex items-center gap-1.5 border-b-2 border-transparent px-0.5 text-xs font-medium text-muted-foreground transition-colors duration-100 hover:text-foreground data-[state=active]:border-primary data-[state=active]:text-foreground focus-visible:outline-offset-0 [&_svg]:size-3.5',
       className
     )}
     {...props}

@@ -10,7 +10,7 @@ export const Skeleton: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ class
 export const Kbd: React.FC<React.HTMLAttributes<HTMLElement>> = ({ className, ...props }) => (
   <kbd
     className={cn(
-      'inline-flex h-4 min-w-4 items-center justify-center rounded-sm border border-border bg-secondary px-1 font-sans text-2xs text-muted-foreground',
+      'inline-flex h-[18px] min-w-[18px] items-center justify-center rounded border border-border bg-muted px-1 font-sans text-2xs font-medium text-muted-foreground',
       className
     )}
     {...props}
@@ -28,10 +28,14 @@ interface EmptyStateProps {
 /** Centered message for a surface with nothing to show: says what is missing and what to do. */
 export const EmptyState: React.FC<EmptyStateProps> = ({ icon, title, description, action, className }) => (
   <div className={cn('flex h-full min-h-24 flex-col items-center justify-center gap-1 p-6 text-center', className)}>
-    {icon && <div className="mb-1.5 text-muted-foreground/70 [&_svg]:size-5">{icon}</div>}
-    <p className="text-xs font-medium text-foreground">{title}</p>
-    {description && <p className="max-w-80 text-xxs leading-4 text-muted-foreground">{description}</p>}
-    {action && <div className="mt-2.5 flex items-center gap-2">{action}</div>}
+    {icon && (
+      <div className="mb-2 flex size-10 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground shadow-raised [&_svg]:size-[18px]">
+        {icon}
+      </div>
+    )}
+    <p className="text-xs font-semibold text-foreground">{title}</p>
+    {description && <p className="max-w-80 text-xxs leading-[17px] text-muted-foreground">{description}</p>}
+    {action && <div className="mt-3 flex items-center gap-2">{action}</div>}
   </div>
 );
 

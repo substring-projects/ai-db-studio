@@ -4,8 +4,9 @@ import { ConnectionProfile } from '../../../shared/types';
 import { cleanError, useStudio } from '../../context/StudioContext';
 import { useWorkspace } from '../../context/WorkspaceContext';
 import { engineLabel } from '../../lib/sql';
-import { createId } from '../../lib/utils';
+import { cn, createId } from '../../lib/utils';
 import { Badge } from '../ui/badge';
+import { EngineMark } from '../ui/engine-mark';
 import { Button } from '../ui/button';
 import { EmptyState, StatusDot } from '../ui/feedback';
 import {
@@ -49,18 +50,28 @@ const ConnectionRow: React.FC<{ profile: ConnectionProfile }> = ({ profile }) =>
   };
 
   return (
-    <div className="group flex items-center gap-3 border-b border-border px-3 py-2 transition-colors duration-75 hover:bg-accent/40">
-      <span className="flex w-24 shrink-0 items-center gap-1.5 text-xxs text-muted-foreground">
-        <StatusDot status={state} />
-        {STATE_LABEL[state]}
-      </span>
+    <div className="group flex items-center gap-3.5 border-b border-border px-4 py-3 transition-colors duration-75 last:border-b-0 hover:bg-accent/40">
+      <EngineMark engine={profile.engine} size="md" />
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5">
-          <span className="truncate text-xs font-medium">{profile.name}</span>
+        <div className="flex items-center gap-2">
+          <span className="truncate text-xs font-semibold">{profile.name}</span>
           <Badge variant="outline">{engineLabel(profile.engine)}</Badge>
+          <span
+            className={cn(
+              'flex items-center gap-1.5 rounded-full px-1.5 py-px text-2xs font-medium',
+              state === 'connected' && 'bg-success/10 text-success',
+              state === 'failed' && 'bg-destructive/10 text-destructive',
+              (state === 'offline' || state === 'connecting') && 'bg-muted text-muted-foreground'
+            )}
+          >
+            <StatusDot status={state} />
+            {STATE_LABEL[state]}
+          </span>
         </div>
-        <p className="selectable truncate font-mono text-2xs text-muted-foreground">
-          {profile.username}@{profile.host}:{profile.port}/{profile.database}
+        <p className="selectable mt-0.5 truncate font-mono text-2xs text-muted-foreground">
+          {profile.connectionString
+            ? profile.connectionString
+            : `${profile.username ? `${profile.username}@` : ''}${profile.host}:${profile.port}/${profile.database}`}
         </p>
         {state === 'failed' && entry?.error && (
           <p className="selectable mt-0.5 break-words text-xxs text-destructive">{entry.error}</p>
@@ -139,18 +150,18 @@ export const ConnectionsView: React.FC = () => {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-3xl px-6 py-6">
-        <div className="mb-3 flex items-center justify-between">
+      <div className="mx-auto max-w-3xl px-8 py-8">
+        <div className="mb-5 flex items-end justify-between gap-4">
           <div>
-            <h1 className="text-sm font-semibold">Connections</h1>
-            <p className="text-xxs text-muted-foreground">PostgreSQL and MySQL databases saved on this device.</p>
+            <h1 className="text-lg font-semibold tracking-[-0.01em]">Connections</h1>
+            <p className="mt-0.5 text-xxs text-muted-foreground">PostgreSQL, MySQL and MongoDB databases saved on this device.</p>
           </div>
           <Button size="sm" onClick={() => openEditProfileModal(null)}>
             <Plus /> Add connection
           </Button>
         </div>
         {profiles.length === 0 ? (
-          <div className="rounded-md border border-dashed border-border">
+          <div className="rounded-xl border border-dashed border-border bg-card/40">
             <EmptyState
               icon={<Cable />}
               title="No connections yet"
@@ -163,7 +174,7 @@ export const ConnectionsView: React.FC = () => {
             />
           </div>
         ) : (
-          <div className="overflow-hidden rounded-md border border-b-0 border-border">
+          <div className="overflow-hidden rounded-xl border border-border bg-card shadow-raised">
             {profiles.map((p) => (
               <ConnectionRow key={p.id} profile={p} />
             ))}

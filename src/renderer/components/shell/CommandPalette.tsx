@@ -44,10 +44,10 @@ export const CommandPalette: React.FC = () => {
   return (
     <DialogPrimitive.Root open={paletteOpen} onOpenChange={setPaletteOpen}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/30 animate-overlay-in" />
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[1.5px] animate-overlay-in" />
         <DialogPrimitive.Content
           aria-describedby={undefined}
-          className="fixed left-1/2 top-[12vh] z-50 w-[min(560px,calc(100vw-48px))] -translate-x-1/2 overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-overlay animate-menu-in"
+          className="fixed left-1/2 top-[12vh] z-50 w-[min(600px,calc(100vw-48px))] -translate-x-1/2 overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground shadow-dialog animate-menu-in"
         >
           <DialogPrimitive.Title className="sr-only">Command palette</DialogPrimitive.Title>
           <Command loop>

@@ -28,12 +28,19 @@ const ActivityButton: React.FC<{
       aria-current={active ? 'page' : undefined}
       onClick={onClick}
       className={cn(
-        'relative flex h-10 w-full items-center justify-center transition-colors duration-100 focus-visible:outline-offset-[-3px]',
+        'group relative flex h-11 w-full items-center justify-center transition-colors duration-100 focus-visible:outline-offset-[-3px]',
         active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
       )}
     >
-      {active && <span className="absolute inset-y-2 left-0 w-0.5 rounded-r-sm bg-primary" />}
-      <Icon className="size-[18px]" strokeWidth={1.6} />
+      {active && <span className="absolute inset-y-2.5 left-0 w-[3px] rounded-r-full bg-primary" />}
+      <span
+        className={cn(
+          'flex size-8 items-center justify-center rounded-lg transition-colors duration-100',
+          active ? 'bg-primary/15 text-primary' : 'group-hover:bg-accent'
+        )}
+      >
+        <Icon className="size-[18px]" strokeWidth={1.75} />
+      </span>
     </button>
   </Tooltip>
 );
@@ -63,7 +70,7 @@ export const ActivityBar: React.FC = () => {
   const select = useSelectActivity();
 
   return (
-    <nav aria-label="Primary" className="flex w-11 shrink-0 flex-col justify-between border-r border-border bg-chrome">
+    <nav aria-label="Primary" className="flex w-12 shrink-0 flex-col justify-between border-r border-border bg-chrome py-1">
       <div className="flex flex-col">
         {ITEMS.map((item) => (
           <ActivityButton
@@ -85,14 +92,21 @@ export const ActivityBar: React.FC = () => {
                 aria-label="Manage connections"
                 aria-current={activeTab?.kind === 'connections' ? 'page' : undefined}
                 className={cn(
-                  'relative flex h-10 w-full items-center justify-center transition-colors duration-100 focus-visible:outline-offset-[-3px]',
+                  'group relative flex h-11 w-full items-center justify-center transition-colors duration-100 focus-visible:outline-offset-[-3px]',
                   activeTab?.kind === 'connections' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
                 )}
               >
                 {activeTab?.kind === 'connections' && (
-                  <span className="absolute inset-y-2 left-0 w-0.5 rounded-r-sm bg-primary" />
+                  <span className="absolute inset-y-2.5 left-0 w-[3px] rounded-r-full bg-primary" />
                 )}
-                <Cable className="size-[18px]" strokeWidth={1.6} />
+                <span
+                  className={cn(
+                    'flex size-8 items-center justify-center rounded-lg transition-colors duration-100',
+                    activeTab?.kind === 'connections' ? 'bg-primary/15 text-primary' : 'group-hover:bg-accent'
+                  )}
+                >
+                  <Cable className="size-[18px]" strokeWidth={1.75} />
+                </span>
               </button>
             </DropdownMenuTrigger>
           </Tooltip>

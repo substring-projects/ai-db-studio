@@ -5,33 +5,35 @@
 @layer base {
   :root {
     color-scheme: light;
+    /* Surfaces, from the window frame inward: chrome (title, activity and status bars),
+       sidebar, background (where work happens), card and popover (raised). */
     --background: 0 0% 100%;
-    --foreground: 218 15% 15%;
-    --sidebar: 220 23% 97%;
-    --chrome: 220 23% 97%;
+    --foreground: 222 20% 13%;
+    --sidebar: 220 20% 97.5%;
+    --chrome: 220 16% 95.5%;
     --card: 0 0% 100%;
-    --card-foreground: 218 15% 15%;
+    --card-foreground: 222 20% 13%;
     --popover: 0 0% 100%;
-    --popover-foreground: 218 15% 15%;
-    --primary: 220 74% 54%;
+    --popover-foreground: 222 20% 13%;
+    --primary: 221 83% 53%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 220 20% 94%;
-    --secondary-foreground: 218 15% 15%;
-    --muted: 220 20% 95%;
-    --muted-foreground: 221 13% 42%;
-    --accent: 220 20% 93.5%;
-    --accent-foreground: 218 15% 15%;
-    --destructive: 0 68% 46%;
+    --secondary: 220 16% 94%;
+    --secondary-foreground: 222 20% 13%;
+    --muted: 220 18% 96%;
+    --muted-foreground: 220 9% 43%;
+    --accent: 220 16% 93%;
+    --accent-foreground: 222 20% 13%;
+    --destructive: 0 72% 48%;
     --destructive-foreground: 0 0% 100%;
-    --border: 218 17% 91%;
-    --input: 218 15% 85%;
-    --ring: 220 74% 54%;
-    --selection: 220 90% 54%;
-    --success: 152 70% 29%;
-    --warning: 32 92% 36%;
-    --info: 220 74% 48%;
-    --shadow: 220 30% 20%;
-    --radius: 6px;
+    --border: 220 14% 89%;
+    --input: 220 13% 83%;
+    --ring: 221 83% 53%;
+    --selection: 221 83% 53%;
+    --success: 152 66% 30%;
+    --warning: 32 92% 38%;
+    --info: 221 83% 48%;
+    --shadow: 222 30% 18%;
+    --radius: 7px;
 
     --syntax-keyword: #2456c7;
     --syntax-string: #2b7a30;
@@ -49,31 +51,31 @@
 
   .dark {
     color-scheme: dark;
-    --background: 223 17% 8%;
-    --foreground: 214 23% 94%;
-    --sidebar: 225 15% 11%;
-    --chrome: 225 15% 11%;
-    --card: 222 15% 13%;
-    --card-foreground: 214 23% 94%;
-    --popover: 222 15% 13%;
-    --popover-foreground: 214 23% 94%;
-    --primary: 219 100% 65%;
-    --primary-foreground: 222 45% 9%;
-    --secondary: 222 13% 19%;
-    --secondary-foreground: 214 23% 94%;
-    --muted: 222 14% 15%;
-    --muted-foreground: 214 11% 64%;
-    --accent: 222 13% 18%;
-    --accent-foreground: 214 23% 94%;
+    --background: 223 13% 11%;
+    --foreground: 216 20% 92%;
+    --sidebar: 224 13% 9.5%;
+    --chrome: 225 14% 8%;
+    --card: 223 12% 14%;
+    --card-foreground: 216 20% 92%;
+    --popover: 223 12% 14.5%;
+    --popover-foreground: 216 20% 92%;
+    --primary: 217 90% 62%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 223 11% 19%;
+    --secondary-foreground: 216 20% 92%;
+    --muted: 223 11% 15%;
+    --muted-foreground: 218 10% 62%;
+    --accent: 223 11% 18%;
+    --accent-foreground: 216 20% 92%;
     --destructive: 0 72% 60%;
-    --destructive-foreground: 0 40% 8%;
-    --border: 222 12% 21%;
-    --input: 222 11% 26%;
-    --ring: 219 100% 65%;
-    --selection: 219 100% 65%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 223 11% 19%;
+    --input: 223 9% 26%;
+    --ring: 217 90% 62%;
+    --selection: 217 90% 62%;
     --success: 152 52% 52%;
     --warning: 38 88% 60%;
-    --info: 219 100% 72%;
+    --info: 217 90% 70%;
     --shadow: 225 40% 2%;
 
     --syntax-keyword: #7fa9ff;
@@ -175,7 +177,12 @@
 
   /* Uppercase section label used across sidebars and inspectors. */
   .section-label {
-    @apply text-2xs font-semibold uppercase tracking-[0.06em] text-muted-foreground;
+    @apply text-2xs font-semibold uppercase tracking-[0.08em] text-muted-foreground;
+  }
+
+  /* Keyboard hint, as shown in menus, tooltips and the search box. */
+  .kbd {
+    @apply inline-flex h-[18px] min-w-[18px] items-center justify-center rounded border border-border bg-muted px-1 font-sans text-2xs font-medium text-muted-foreground;
   }
 
 }

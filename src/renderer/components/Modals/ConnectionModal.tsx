@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
+import { AlertTriangle, Cable, CheckCircle2, Loader2 } from 'lucide-react';
 import { ENGINE_LIST, engineInfo, splitConnectionString } from '../../../shared/engines';
 import { ConnectionProfile, Engine, TlsMode } from '../../../shared/types';
 import { cleanError } from '../../context/StudioContext';
@@ -7,6 +7,7 @@ import { cn, createId } from '../../lib/utils';
 import { Button } from '../ui/button';
 import { Dialog, DialogBody, DialogContent, DialogFooter } from '../ui/dialog';
 import { Input, Label } from '../ui/input';
+import { EngineMark } from '../ui/engine-mark';
 
 interface ConnectionModalProps {
   profile?: ConnectionProfile | null;
@@ -25,7 +26,7 @@ const SegmentedControl = <T extends string>({
   options: { value: T; label: string }[];
   onChange: (value: T) => void;
 }) => (
-  <div role="radiogroup" aria-label={label} className="flex h-7 rounded-md border border-input p-0.5">
+  <div role="radiogroup" aria-label={label} className="flex h-8 rounded-lg border border-input bg-muted/50 p-0.5">
     {options.map((option) => (
       <button
         key={option.value}
@@ -34,8 +35,8 @@ const SegmentedControl = <T extends string>({
         aria-checked={value === option.value}
         onClick={() => onChange(option.value)}
         className={cn(
-          'flex-1 rounded-sm text-xxs transition-colors duration-75',
-          value === option.value ? 'bg-secondary font-medium text-foreground' : 'text-muted-foreground hover:text-foreground'
+          'flex-1 rounded-md text-xxs transition-colors duration-75',
+          value === option.value ? 'bg-card font-medium text-foreground shadow-raised ring-1 ring-border' : 'text-muted-foreground hover:text-foreground'
         )}
       >
         {option.label}
@@ -151,19 +152,40 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ profile, onSav
       <DialogContent
         title={isEditing ? `Edit ${profile!.name}` : 'Add connection'}
         description="Stored on this device. Passwords are encrypted with your system's keychain."
-        className="max-w-md"
+        className="max-w-lg"
+        icon={<Cable />}
       >
         <form onSubmit={save} className="flex min-h-0 flex-1 flex-col">
           <DialogBody className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Database type">
-                <SegmentedControl
-                  label="Database type"
-                  value={engine}
-                  onChange={changeEngine}
-                  options={ENGINE_LIST.map((e) => ({ value: e.id, label: e.label }))}
-                />
-              </Field>
+            <Field label="Database type">
+              <div role="radiogroup" aria-label="Database type" className="grid grid-cols-3 gap-2">
+                {ENGINE_LIST.map((e) => {
+                  const selected = engine === e.id;
+                  return (
+                    <button
+                      key={e.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      onClick={() => changeEngine(e.id)}
+                      className={cn(
+                        'flex items-center gap-2.5 rounded-lg border px-2.5 py-2 text-left transition-colors duration-75',
+                        selected
+                          ? 'border-primary bg-primary/5 ring-1 ring-primary/40'
+                          : 'border-border bg-card hover:border-input hover:bg-accent/50'
+                      )}
+                    >
+                      <EngineMark engine={e.id} size="sm" />
+                      <span className="min-w-0">
+                        <span className="block truncate text-xs font-medium text-foreground">{e.label}</span>
+                        <span className="block text-2xs text-muted-foreground">Port {e.defaults.port}</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </Field>
+            <div className="grid grid-cols-1 gap-3">
               <Field label="Name" htmlFor="conn-name">
                 <Input
                   id="conn-name"

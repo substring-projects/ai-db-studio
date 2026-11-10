@@ -29,7 +29,7 @@ import {
 } from '../ui/menu';
 
 export const SidebarHeader: React.FC<{ title: string; children?: React.ReactNode }> = ({ title, children }) => (
-  <div className="flex h-8 shrink-0 items-center justify-between pl-3 pr-1.5">
+  <div className="flex h-10 shrink-0 items-center justify-between pl-3.5 pr-2">
     <h2 className="section-label">{title}</h2>
     <div className="flex items-center gap-0.5">{children}</div>
   </div>

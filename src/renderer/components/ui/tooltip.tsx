@@ -18,10 +18,10 @@ export const Tooltip: React.FC<TooltipProps> = ({ content, shortcut, side = 'bot
       <TooltipPrimitive.Content
         side={side}
         sideOffset={6}
-        className="z-[60] flex max-w-72 items-center gap-2 rounded-sm border border-border bg-popover px-1.5 py-1 text-xxs text-popover-foreground shadow-overlay animate-menu-in"
+        className="z-[60] flex max-w-72 items-center gap-2 rounded-md border border-border bg-popover px-2 py-1 text-xxs font-medium text-popover-foreground shadow-overlay animate-menu-in"
       >
         <span>{content}</span>
-        {shortcut && <span className="tracking-wide text-muted-foreground">{shortcutLabel(shortcut)}</span>}
+        {shortcut && <span className="kbd">{shortcutLabel(shortcut)}</span>}
       </TooltipPrimitive.Content>
     </TooltipPrimitive.Portal>
   </TooltipPrimitive.Root>

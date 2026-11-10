@@ -79,7 +79,7 @@ export class StorageService {
         {
           id: 'draft-default',
           title: 'New Query',
-          sql: '-- Welcome to AI DB Studio\n-- Connect to a database profile on the right to start querying.\nSELECT 1;',
+          sql: '-- Welcome to AI DB Studio\n-- Pick a connection in the sidebar, or add one, then press Cmd/Ctrl+Enter to run.\nSELECT 1;',
           updatedAt: Date.now(),
         },
       ],

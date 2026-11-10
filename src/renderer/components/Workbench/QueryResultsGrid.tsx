@@ -79,8 +79,8 @@ import {
   DropdownMenuTrigger,
 } from '../ui/menu';
 
-const ROW_HEIGHT = 24;
-const HEADER_HEIGHT = 27;
+const ROW_HEIGHT = 26;
+const HEADER_HEIGHT = 30;
 const ROW_NUMBER_WIDTH = 48;
 const MIN_COLUMN_WIDTH = 56;
 
@@ -543,7 +543,7 @@ export const QueryResultsGrid: React.FC<QueryResultsGridProps> = React.memo(
             <div className="h-full w-1/4 animate-progress bg-primary" />
           </div>
         )}
-        <div className="flex h-7 shrink-0 items-center gap-1.5 border-b border-border bg-background px-2 text-xxs">
+        <div className="flex h-9 shrink-0 items-center gap-1.5 border-b border-border bg-background px-2.5 text-xxs">
           <span className="flex shrink-0 items-center gap-1.5 tabular-nums text-muted-foreground">
             {summary ?? (
               <>
@@ -660,9 +660,9 @@ export const QueryResultsGrid: React.FC<QueryResultsGridProps> = React.memo(
             >
               <div style={{ ...columnVars, width: totalWidth, minWidth: '100%' }} className="relative">
                 {/* Header */}
-                <div role="row" className="sticky top-0 z-20 flex border-b border-border bg-chrome" style={{ height: HEADER_HEIGHT }}>
+                <div role="row" className="sticky top-0 z-20 flex border-b border-border bg-sidebar shadow-raised" style={{ height: HEADER_HEIGHT }}>
                   <div
-                    className="sticky left-0 z-10 shrink-0 border-r border-border bg-chrome"
+                    className="sticky left-0 z-10 shrink-0 border-r border-border bg-sidebar"
                     style={{ width: ROW_NUMBER_WIDTH }}
                     aria-hidden
                   />
@@ -684,7 +684,7 @@ export const QueryResultsGrid: React.FC<QueryResultsGridProps> = React.memo(
                         <button
                           type="button"
                           onClick={() => toggleSort(i)}
-                          className="flex h-full min-w-0 flex-1 items-center gap-1 pl-2 pr-1 text-left font-medium transition-colors duration-75 hover:bg-accent focus-visible:outline-offset-[-2px]"
+                          className="flex h-full min-w-0 flex-1 items-center gap-1.5 pl-2.5 pr-1 text-left font-semibold text-foreground/90 transition-colors duration-75 hover:bg-accent focus-visible:outline-offset-[-2px]"
                         >
                           {info.meta?.primaryKey ? (
                             <Key aria-label="Primary key" className="size-3 shrink-0 text-warning" />
@@ -753,7 +753,7 @@ export const QueryResultsGrid: React.FC<QueryResultsGridProps> = React.memo(
                           style={{ transform: `translateY(${virtual.start}px)`, height: ROW_HEIGHT }}
                           className={cn(
                             'group/row absolute left-0 top-0 flex w-full border-b border-border/50',
-                            isSelected ? 'bg-selection/15' : 'hover:bg-accent/60'
+                            isSelected ? 'bg-selection/15' : virtual.index % 2 === 1 ? 'bg-muted/45 hover:bg-accent/70' : 'hover:bg-accent/70'
                           )}
                         >
                           <button
@@ -764,7 +764,7 @@ export const QueryResultsGrid: React.FC<QueryResultsGridProps> = React.memo(
                             style={{ width: ROW_NUMBER_WIDTH }}
                             className={cn(
                               'sticky left-0 z-10 shrink-0 cursor-default border-r border-border px-1.5 text-right text-2xs tabular-nums text-muted-foreground transition-colors duration-75 hover:text-foreground',
-                              isSelected ? 'bg-selection/15 text-foreground' : 'bg-chrome'
+                              isSelected ? 'bg-selection/15 text-foreground' : 'bg-sidebar'
                             )}
                           >
                             {formatCount(virtual.index + 1)}
@@ -785,7 +785,7 @@ export const QueryResultsGrid: React.FC<QueryResultsGridProps> = React.memo(
                                 onClick={() => setActiveCell({ row: virtual.index, col })}
                                 onDoubleClick={() => onEditCell && editCell(virtual.index, col)}
                                 className={cn(
-                                  'flex shrink-0 items-center truncate border-r border-border/50 px-2',
+                                  'flex shrink-0 items-center truncate border-r border-border/50 px-2.5',
                                   info.kind === 'number' && !isNull && 'justify-end tabular-nums',
                                   isActive && 'outline outline-1 -outline-offset-1 outline-primary'
                                 )}
