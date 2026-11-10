@@ -772,6 +772,7 @@ export const DatabaseExplorer: React.FC = () => {
         <CreateTableModal
           engine={createFor.profile.engine}
           schema={createFor.schema}
+          profileId={createFor.profile.id}
           onExecuteDdl={(ddl) => runBackground(createFor.profile, ddl)}
           onClose={() => setCreateFor(null)}
         />

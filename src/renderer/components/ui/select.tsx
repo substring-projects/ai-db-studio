@@ -69,4 +69,13 @@ export const SelectItem: React.FC<React.ComponentPropsWithoutRef<typeof SelectPr
   </SelectPrimitive.Item>
 );
 
+export const SelectGroup = SelectPrimitive.Group;
+
+export const SelectLabel: React.FC<React.ComponentPropsWithoutRef<typeof SelectPrimitive.Label>> = ({ className, ...props }) => (
+  <SelectPrimitive.Label
+    className={cn('px-2 pb-0.5 pt-1.5 text-2xs font-semibold uppercase tracking-[0.06em] text-muted-foreground', className)}
+    {...props}
+  />
+);
+
 export const SelectSeparator: React.FC = () => <SelectPrimitive.Separator className="-mx-1 my-1 h-px bg-border" />;

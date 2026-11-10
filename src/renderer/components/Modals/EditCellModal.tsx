@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Engine } from '../../../shared/types';
+import { Engine, ForeignKey } from '../../../shared/types';
 import { formatCell, kindFromTypeName } from '../../lib/grid';
 import { quoteIdent } from '../../lib/sql';
 import { Button } from '../ui/button';
@@ -8,6 +8,7 @@ import { Checkbox, Input, Label, Textarea } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Badge } from '../ui/badge';
 import { Check, Sparkles } from 'lucide-react';
+import { ForeignKeyPicker } from './ForeignKeyPicker';
 
 interface EditCellModalProps {
   tableName: string;
@@ -19,6 +20,10 @@ interface EditCellModalProps {
   engine?: Engine;
   columnType?: string;
   enumOptions?: string[];
+  /** With these, a foreign key column gets a searchable list of the referenced rows. */
+  profileId?: string;
+  foreignKey?: ForeignKey;
+  schema?: string;
   onSave: (sql: string) => void;
   onClose: () => void;
 }
@@ -32,6 +37,9 @@ export const EditCellModal: React.FC<EditCellModalProps> = ({
   engine,
   columnType = '',
   enumOptions = [],
+  profileId,
+  foreignKey,
+  schema,
   onSave,
   onClose,
 }) => {
@@ -79,6 +87,7 @@ export const EditCellModal: React.FC<EditCellModalProps> = ({
   });
 
   const [jsonError, setJsonError] = useState<string | null>(null);
+  const usePicker = Boolean(foreignKey && profileId);
 
   const formatJson = () => {
     try {
@@ -137,7 +146,23 @@ export const EditCellModal: React.FC<EditCellModalProps> = ({
               </label>
             </div>
 
-            {!isNull && inferredKind === 'boolean' && (
+            {!isNull && usePicker && (
+              <div className="space-y-1">
+                <ForeignKeyPicker
+                  id="cell-value"
+                  profileId={profileId!}
+                  foreignKey={foreignKey!}
+                  schema={schema}
+                  value={value}
+                  onChange={setValue}
+                />
+                <p className="text-2xs text-muted-foreground">
+                  References {foreignKey!.refTable}.{foreignKey!.refColumn}
+                </p>
+              </div>
+            )}
+
+            {!isNull && !usePicker && inferredKind === 'boolean' && (
               <div className="flex gap-2 pt-1">
                 <Button
                   type="button"
@@ -160,7 +185,7 @@ export const EditCellModal: React.FC<EditCellModalProps> = ({
               </div>
             )}
 
-            {!isNull && (inferredKind === 'enum' || parsedEnumOptions.length > 0) && (
+            {!isNull && !usePicker && (inferredKind === 'enum' || parsedEnumOptions.length > 0) && (
               <div className="space-y-1.5">
                 {parsedEnumOptions.length > 0 ? (
                   <Select value={value} onValueChange={setValue}>
@@ -187,7 +212,7 @@ export const EditCellModal: React.FC<EditCellModalProps> = ({
               </div>
             )}
 
-            {!isNull && inferredKind === 'json' && (
+            {!isNull && !usePicker && inferredKind === 'json' && (
               <div className="space-y-1.5">
                 <div className="flex justify-end">
                   <Button type="button" variant="quiet" size="sm" onClick={formatJson} className="h-6 text-2xs">
@@ -209,7 +234,7 @@ export const EditCellModal: React.FC<EditCellModalProps> = ({
               </div>
             )}
 
-            {!isNull && inferredKind === 'date' && (
+            {!isNull && !usePicker && inferredKind === 'date' && (
               <div className="space-y-1.5">
                 <Input
                   id="cell-value"
@@ -241,7 +266,7 @@ export const EditCellModal: React.FC<EditCellModalProps> = ({
               </div>
             )}
 
-            {!isNull && inferredKind === 'number' && (
+            {!isNull && !usePicker && inferredKind === 'number' && (
               <Input
                 id="cell-value"
                 type="number"
@@ -253,6 +278,7 @@ export const EditCellModal: React.FC<EditCellModalProps> = ({
             )}
 
             {!isNull &&
+              !usePicker &&
               inferredKind !== 'boolean' &&
               inferredKind !== 'enum' &&
               parsedEnumOptions.length === 0 &&

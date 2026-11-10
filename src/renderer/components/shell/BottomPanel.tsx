@@ -239,6 +239,9 @@ const SqlTabResultGrid: React.FC<{
           target={rowWhereClause(profile?.engine, tabRun.result.columns, editing.row, columnMeta ?? [])}
           engine={profile?.engine}
           columnType={columnMeta?.find((c) => c.name.toLowerCase() === editing.column.toLowerCase())?.typeName}
+          profileId={tabRun.profileId}
+          foreignKey={foreignKeys.find((f) => f.column.toLowerCase() === editing.column.toLowerCase())}
+          schema={tableInfo.schema}
           onSave={runWrite}
           onClose={() => setEditing(null)}
         />
@@ -249,6 +252,9 @@ const SqlTabResultGrid: React.FC<{
           qualifiedTable={qualifiedTable}
           columns={columnMeta}
           engine={profile.engine}
+          profileId={tabRun.profileId}
+          foreignKeys={foreignKeys}
+          schema={tableInfo.schema}
           onInsert={runWrite}
           onClose={() => setInsertOpen(false)}
         />

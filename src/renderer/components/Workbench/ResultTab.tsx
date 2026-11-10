@@ -98,6 +98,9 @@ export const ResultTab: React.FC<{ tab: Extract<WorkspaceTab, { kind: 'result' }
           target={rowWhereClause(profile?.engine, currentResult.columns, editing.row, columnMeta ?? [])}
           engine={profile?.engine}
           columnType={columnMeta?.find((c) => c.name.toLowerCase() === editing.column.toLowerCase())?.typeName}
+          profileId={tab.profileId}
+          foreignKey={foreignKeys.find((f) => f.column.toLowerCase() === editing.column.toLowerCase())}
+          schema={tableInfo.schema}
           onSave={(sql) => {
             runWrite(sql, () => {
               showToast('Row updated', 'success');

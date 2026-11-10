@@ -340,6 +340,9 @@ export const TableDataTab: React.FC<{ tab: Extract<WorkspaceTab, { kind: 'table'
           qualifiedTable={tableSql}
           columns={columnMeta}
           engine={profile.engine}
+          profileId={tab.profileId}
+          foreignKeys={foreignKeys}
+          schema={tab.schema}
           onInsert={runWrite}
           onClose={() => setInsertOpen(false)}
         />
@@ -353,6 +356,9 @@ export const TableDataTab: React.FC<{ tab: Extract<WorkspaceTab, { kind: 'table'
           target={rowWhereClause(profile.engine, result.columns, editing.row, columnMeta ?? [])}
           engine={profile.engine}
           columnType={columnMeta?.find((c) => c.name.toLowerCase() === editing.column.toLowerCase())?.typeName}
+          profileId={tab.profileId}
+          foreignKey={foreignKeys.find((f) => f.column.toLowerCase() === editing.column.toLowerCase())}
+          schema={tab.schema}
           onSave={runWrite}
           onClose={() => setEditing(null)}
         />

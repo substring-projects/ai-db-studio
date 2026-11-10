@@ -71,6 +71,8 @@ export interface ForeignKey {
   name: string;
   column: string;
   refTable: string;
+  /** PostgreSQL only: schema of the referenced table. */
+  refSchema?: string;
   refColumn: string;
 }
 
