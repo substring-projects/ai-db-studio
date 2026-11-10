@@ -290,6 +290,13 @@ export function validateTable(engine: Engine, spec: TableSpec): string[] {
   return [...new Set(errors)];
 }
 
+/** MySQL types whose default must be an expression in parentheses. */
+export function needsExpressionDefault(type: string): boolean {
+  return /^((TINY|MEDIUM|LONG)?(TEXT|BLOB)|JSON|GEOMETRY|POINT|LINESTRING|POLYGON|MULTIPOINT|MULTILINESTRING|MULTIPOLYGON|GEOMETRYCOLLECTION)$/i.test(
+    type.trim()
+  );
+}
+
 function columnSql(engine: Engine, col: ColumnSpec, singlePk: boolean): string {
   const name = col.name.trim();
   const parts = [quoteIdent(engine, name), columnTypeSql(engine, col)];
@@ -299,7 +306,12 @@ function columnSql(engine: Engine, col: ColumnSpec, singlePk: boolean): string {
   // Primary key columns are NOT NULL anyway; saying so keeps the DDL explicit.
   if (col.notNull || col.primaryKey) parts.push('NOT NULL');
   if (col.autoIncrement && !isPg) parts.push('AUTO_INCREMENT');
-  const def = col.autoIncrement ? '' : defaultExpression(col.defaultValue);
+  let def = col.autoIncrement ? '' : defaultExpression(col.defaultValue);
+  // MySQL rejects literal defaults on TEXT, BLOB, JSON and spatial columns; since 8.0.13
+  // it accepts them written as an expression in parentheses.
+  if (def && !isPg && needsExpressionDefault(col.type) && !/^\(.*\)$/s.test(def) && def !== 'NULL') {
+    def = `(${def})`;
+  }
   if (def) parts.push(`DEFAULT ${def}`);
   if (!isPg && col.onUpdateNow) parts.push('ON UPDATE CURRENT_TIMESTAMP');
   if (col.primaryKey && singlePk) parts.push('PRIMARY KEY');

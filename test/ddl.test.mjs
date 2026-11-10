@@ -79,6 +79,29 @@ test('defaults: values are quoted, expressions are kept', () => {
   assert.equal(defaultExpression(''), '');
 });
 
+test('mysql wraps defaults on TEXT, BLOB and JSON columns in parentheses', () => {
+  const sql = buildCreateTable(
+    'MYSQL',
+    spec({
+      columns: [
+        emptyColumn({ name: 'note', type: 'TEXT', params: '', defaultValue: 'none yet' }),
+        emptyColumn({ name: 'meta', type: 'JSON', params: '', defaultValue: "('{}')" }),
+        emptyColumn({ name: 'tags', type: 'json', params: '', defaultValue: 'json_array()' }),
+        emptyColumn({ name: 'body', type: 'LONGTEXT', params: '', defaultValue: 'null' }),
+        emptyColumn({ name: 'title', type: 'VARCHAR', params: '100', defaultValue: 'untitled' }),
+      ],
+    })
+  );
+  assert.ok(sql.includes("`note` TEXT DEFAULT ('none yet')"));
+  assert.ok(sql.includes("`meta` JSON DEFAULT ('{}')"), 'already wrapped stays as is');
+  assert.ok(sql.includes('`tags` json DEFAULT (json_array())'));
+  assert.ok(sql.includes('`body` LONGTEXT DEFAULT NULL'), 'NULL needs no parentheses');
+  assert.ok(sql.includes("`title` VARCHAR(100) DEFAULT 'untitled'"), 'other types are unchanged');
+
+  const pg = buildCreateTable('POSTGRESQL', spec({ columns: [emptyColumn({ name: 'note', type: 'TEXT', params: '', defaultValue: 'none yet' })] }));
+  assert.ok(pg.includes(`"note" TEXT DEFAULT 'none yet'`), 'PostgreSQL is unchanged');
+});
+
 test('type arguments are formatted', () => {
   assert.equal(columnTypeSql('POSTGRESQL', emptyColumn({ type: 'NUMERIC', params: '12, 4' })), 'NUMERIC(12,4)');
   assert.equal(columnTypeSql('POSTGRESQL', emptyColumn({ type: 'TEXT', params: '' })), 'TEXT');
