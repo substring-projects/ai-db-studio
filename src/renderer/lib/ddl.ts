@@ -79,6 +79,8 @@ export const COLUMN_TYPES: Record<Engine, ColumnTypeDef[]> = {
     { name: 'LONGBLOB', group: 'Binary' },
     { name: 'JSON', group: 'JSON' },
   ],
+  // Not a SQL database: the create table designer is not offered for it.
+  MONGODB: [],
 };
 
 export const REFERENTIAL_ACTIONS = ['NO ACTION', 'RESTRICT', 'CASCADE', 'SET NULL', 'SET DEFAULT'] as const;

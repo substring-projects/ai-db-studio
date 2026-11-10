@@ -22,6 +22,7 @@ import { DbTable, Engine, ForeignKey, TableColumn, TableStructure } from '../../
 import { useStudio } from '../../context/StudioContext';
 import { useSchema } from '../../context/SchemaContext';
 import { useWorkspace, WorkspaceTab } from '../../context/WorkspaceContext';
+import { engineInfo } from '../../../shared/engines';
 import { columnKey, qualifiedName } from '../../lib/sql';
 import { cn, formatCount } from '../../lib/utils';
 import { Badge } from '../ui/badge';
@@ -322,8 +323,12 @@ export const ErDiagramView: React.FC<{ tab: Extract<WorkspaceTab, { kind: 'er' }
     return (
       <EmptyState
         icon={<Table2 />}
-        title="No tables found"
-        description={tab.schema ? `No tables found in schema "${tab.schema}".` : 'This database does not contain any tables yet.'}
+        title={`No ${engineInfo(profile?.engine).terms.tables} found`}
+        description={
+          tab.schema
+            ? `No ${engineInfo(profile?.engine).terms.tables} found in schema "${tab.schema}".`
+            : `This database does not contain any ${engineInfo(profile?.engine).terms.tables} yet.`
+        }
       />
     );
   }
@@ -590,7 +595,13 @@ export const ErDiagramView: React.FC<{ tab: Extract<WorkspaceTab, { kind: 'er' }
                           col.primaryKey && 'bg-warning/5 font-medium',
                           isFk && 'bg-sky-500/5'
                         )}
-                        title={fkDetail ? `Foreign Key → ${fkDetail.refTable}.${fkDetail.refColumn}` : undefined}
+                        title={
+                          fkDetail
+                            ? fkDetail.inferred
+                              ? `Likely reference → ${fkDetail.refTable}.${fkDetail.refColumn} (inferred from the field name and ObjectId values)`
+                              : `Foreign Key → ${fkDetail.refTable}.${fkDetail.refColumn}`
+                            : undefined
+                        }
                       >
                         <div className="flex min-w-0 items-center gap-1.5">
                           {col.primaryKey ? (

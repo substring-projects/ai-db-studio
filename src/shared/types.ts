@@ -1,4 +1,5 @@
-export type Engine = 'POSTGRESQL' | 'MYSQL';
+/** Every supported database. Add an entry here, in engines.ts and in the main-process driver registry. */
+export type Engine = 'POSTGRESQL' | 'MYSQL' | 'MONGODB';
 export type TlsMode = 'PREFER' | 'REQUIRE' | 'DISABLE';
 
 export interface ConnectionProfile {
@@ -11,6 +12,13 @@ export interface ConnectionProfile {
   username: string;
   tlsMode: TlsMode;
   password?: string;
+  /**
+   * MongoDB: optional connection string such as mongodb+srv://cluster.example.net/?retryWrites=true.
+   * Stored without credentials; the username and password fields supply them.
+   */
+  connectionString?: string;
+  /** MongoDB: database that holds the user's credentials. Defaults to admin. */
+  authSource?: string;
 }
 
 export interface SqlDraft {
@@ -74,6 +82,11 @@ export interface ForeignKey {
   /** PostgreSQL only: schema of the referenced table. */
   refSchema?: string;
   refColumn: string;
+  /**
+   * Not declared by the database but guessed from the data, as for MongoDB, where a userId
+   * field holding ObjectIds most likely points at the users collection.
+   */
+  inferred?: boolean;
 }
 
 export interface TableStructure {

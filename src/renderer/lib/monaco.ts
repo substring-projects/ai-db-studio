@@ -24,6 +24,9 @@ import 'monaco-editor/editor/contrib/tokenization/browser/tokenization.js';
 import 'monaco-editor/editor/contrib/wordHighlighter/browser/wordHighlighter.js';
 import 'monaco-editor/editor/contrib/wordOperations/browser/wordOperations.js';
 import 'monaco-editor/languages/definitions/sql/register.js';
+// MongoDB shell statements are JavaScript-shaped; only the lightweight tokenizer is loaded.
+import 'monaco-editor/languages/definitions/javascript/register.js';
+import { MONGO_COLLECTION_METHODS, MONGO_CURSOR_METHODS, MONGO_DATABASE_METHODS, MONGO_OPERATORS } from '../../shared/mongoShell';
 import type { DbTable, TableColumn } from '../../shared/types';
 import { columnKey } from './sql';
 
@@ -111,6 +114,10 @@ for (const [name, theme] of Object.entries(THEMES)) {
       { token: 'comment.quote.sql', foreground: theme.comment },
       { token: 'predefined.sql', foreground: theme.predefined },
       { token: 'delimiter.sql', foreground: theme.operator },
+      // MongoDB shell (JavaScript tokenizer)
+      { token: 'string', foreground: theme.string },
+      { token: 'regexp', foreground: theme.string },
+      { token: 'delimiter', foreground: theme.operator },
     ],
     colors: {
       ...theme.colors,
@@ -199,6 +206,82 @@ monaco.languages.registerCompletionItemProvider('sql', {
           sortText: `1${t.name}`,
         })),
         ...KEYWORD_LIST.map((k) => ({ label: k, kind: Keyword, insertText: k, range, sortText: `2${k}` })),
+      ],
+    };
+  },
+});
+
+/** Editor language for a query language: MongoDB shell statements use the JavaScript tokenizer. */
+export const editorLanguage = (queryLanguage: 'sql' | 'mongodb') => (queryLanguage === 'mongodb' ? 'javascript' : 'sql');
+
+/** The collection a `db.name.` or `db.getCollection("name").` chain before the cursor refers to. */
+function chainCollection(text: string): string | undefined {
+  const matches = [...text.matchAll(/\bdb\.(?:getCollection\(\s*["']([^"']+)["']\s*\)|([A-Za-z_$][\w$]*))/g)];
+  const last = matches[matches.length - 1];
+  return last ? last[1] ?? last[2] : undefined;
+}
+
+monaco.languages.registerCompletionItemProvider('javascript', {
+  triggerCharacters: ['.', '$', '"'],
+  provideCompletionItems(model, position) {
+    const source = schemaSources.get(model.uri.toString());
+    // Only query editors register a schema source; other JavaScript models get nothing.
+    if (!source) return { suggestions: [] };
+    const schema = source();
+    const word = model.getWordUntilPosition(position);
+    const range = new monaco.Range(position.lineNumber, word.startColumn, position.lineNumber, word.endColumn);
+    const { Method, Class, Field, Operator } = monaco.languages.CompletionItemKind;
+    const textBefore = model.getValueInRange(new monaco.Range(1, 1, position.lineNumber, word.startColumn));
+    const tables = schema?.tables ?? [];
+    const method = (name: string, sortText: string) => ({
+      label: name,
+      kind: Method,
+      insertText: `${name}($0)`,
+      insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+      range,
+      sortText: `${sortText}${name}`,
+    });
+
+    // db.|
+    if (/\bdb\.$/.test(textBefore)) {
+      return {
+        suggestions: [
+          ...tables.map((t) => ({
+            label: t.name,
+            kind: Class,
+            detail: t.type === 'VIEW' ? 'view' : 'collection',
+            insertText: /^[A-Za-z_$][\w$]*$/.test(t.name) ? t.name : `getCollection(${JSON.stringify(t.name)})`,
+            range,
+            sortText: `0${t.name}`,
+          })),
+          ...MONGO_DATABASE_METHODS.map((m) => method(m, '1')),
+        ],
+      };
+    }
+    // db.users.|  or  db.getCollection("x").|
+    if (/\bdb\.(?:[A-Za-z_$][\w$]*|getCollection\([^)]*\))\.$/.test(textBefore)) {
+      return { suggestions: MONGO_COLLECTION_METHODS.map((m) => method(m, '0')) };
+    }
+    // ...find({...}).|
+    if (/\)\s*\.$/.test(textBefore)) {
+      return { suggestions: MONGO_CURSOR_METHODS.map((m) => method(m, '0')) };
+    }
+    // Inside a document: field names of the collection, and $operators.
+    const collection = chainCollection(textBefore);
+    const columns = collection ? schema?.columns[columnKey(collection)] ?? [] : [];
+    const typingOperator = textBefore.endsWith('$') || model.getLineContent(position.lineNumber)[word.startColumn - 2] === '$';
+    return {
+      suggestions: [
+        ...(typingOperator
+          ? []
+          : columns.map((c) => ({ label: c.name, kind: Field, detail: c.typeName, insertText: c.name, range, sortText: `0${c.name}` }))),
+        ...[...new Set(MONGO_OPERATORS)].map((op) => ({
+          label: op,
+          kind: Operator,
+          insertText: typingOperator ? op.slice(1) : op,
+          range,
+          sortText: `1${op}`,
+        })),
       ],
     };
   },

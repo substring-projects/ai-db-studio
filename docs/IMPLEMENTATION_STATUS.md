@@ -6,6 +6,7 @@ AI DB Studio is pre-release software. See the [README](../README.md) for what it
 
 - PostgreSQL 17 and MySQL 8.4, on macOS: connections, schema browsing, table data, manual SQL, cancellation and query review.
 - The AI assistant, using LangChain's OpenAI and Ollama clients against local stand-in servers.
+- PostgreSQL 17 and MySQL 9.6 after the move to per-database drivers: the same 46 PostgreSQL and 40 MySQL operations (schema, structure, every filter, counts, queries, approvals, explain, the AI read-only gate, errors, cancel) return identical results on the code before and after the change. The create-table designer's output also runs on both.
 
 ## Implemented, not yet verified against a live database
 
@@ -15,6 +16,19 @@ Covered by unit tests of the generated SQL for both PostgreSQL and MySQL, but no
 - **Foreign key picker:** when inserting a row or editing a cell, foreign key columns offer a searchable list of rows from the referenced table, labelled with a readable column such as `name` or `email`. A value not in the list can still be typed.
 
 Version notes for MySQL: defaults on TEXT, BLOB and JSON columns and the `(UUID())` default need 8.0.13 or newer, and CHECK constraints are enforced from 8.0.16.
+
+### MongoDB
+
+Tested end to end against MongoDB 7.0 on macOS with an in-memory server, through the same calls the interface makes: connecting by host and by connection string, collections, views and time series collections, field inference, structure, every filter operator and match-any, counts, sorting and paging, the query editor's commands, every kind of write and its approval, explain, the AI read-only gate, and cancelling a slow query on the server. Not yet clicked through in the running app, or tried against Atlas or a replica set.
+
+- Connections by host and port or by connection string. Credentials in a pasted string are moved to the encrypted password field.
+- Collections, views and indexes in the explorer. Fields are inferred from a sample of documents.
+- Shell commands in the editor: find, findOne, aggregate, countDocuments, distinct, insert, update, replace, delete, bulkWrite, index and collection commands. They are parsed, never run as JavaScript.
+- Writes, including aggregations with `$out` or `$merge`, need approval. The review card warns about `drop()`, `dropDatabase()` and empty-filter `deleteMany` or `updateMany`.
+- Edit a field, edit or insert a whole document, delete documents, all addressed by `_id`, in the collection view and in the results of a single `find()` or `findOne()`.
+- The AI assistant writes and runs MongoDB commands. Reads run on their own; writes, and reads using `$where`, `$function`, `$accumulator`, `$out` or `$merge`, wait for review.
+- Create collection form: standard, capped or time series, validation rules (from simple field rules or a hand-written validator), and indexes including compound, unique, sparse and TTL.
+- ER diagram from inferred references: a field holding ObjectIds whose name matches a collection (`userId`, `user_id` or `user` → `users`). They are labelled as inferred, because MongoDB does not declare them.
 
 ## Not yet verified
 

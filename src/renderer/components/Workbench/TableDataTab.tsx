@@ -14,7 +14,9 @@ import { cleanError, useStudio } from '../../context/StudioContext';
 import { useSchema } from '../../context/SchemaContext';
 import { useWorkspace, WorkspaceTab } from '../../context/WorkspaceContext';
 import { FilterRule, ForeignKey, QueryResult } from '../../../shared/types';
+import { engineInfo } from '../../../shared/engines';
 import { columnKey, qualifiedName, rowWhereClause } from '../../lib/sql';
+import { tableReadDescription } from '../../lib/statements';
 import { createId, formatCount, formatDuration, pluralize, prefs } from '../../lib/utils';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -26,11 +28,12 @@ import { AdvancedFilterModal } from '../Modals/AdvancedFilterModal';
 import { EditCellModal } from '../Modals/EditCellModal';
 import { InsertRowModal } from '../Modals/InsertRowModal';
 import { QueryResultsGrid, ServerControls } from './QueryResultsGrid';
+import { useDocumentEditing } from './useDocumentEditing';
 
 const PAGE_SIZES = [50, 100, 250, 500, 1000];
 
 export const TableDataTab: React.FC<{ tab: Extract<WorkspaceTab, { kind: 'table' }>; active: boolean }> = ({ tab, active }) => {
-  const { profiles, connectionStates, connectProfile } = useStudio();
+  const { profiles, connectionStates, connectProfile, showToast } = useStudio();
   const { schemas, loadStructure } = useSchema();
   const { appendLog, recordRun, runSql, openStructure, openTableData } = useWorkspace();
 
@@ -38,6 +41,8 @@ export const TableDataTab: React.FC<{ tab: Extract<WorkspaceTab, { kind: 'table'
   const connected = connectionStates[tab.profileId]?.state === 'connected';
   const columnMeta = schemas[tab.profileId]?.columns[columnKey(tab.table, tab.schema)];
   const isView = tab.objectType === 'VIEW';
+  /** Document databases edit whole documents by _id instead of rows by primary key. */
+  const isDocument = engineInfo(profile?.engine).family === 'document';
 
   const [foreignKeys, setForeignKeys] = useState<ForeignKey[]>([]);
   const [page, setPage] = useState(0);
@@ -85,7 +90,7 @@ export const TableDataTab: React.FC<{ tab: Extract<WorkspaceTab, { kind: 'table'
       recordRun(tab.id, {
         runId: createId('run'),
         profileId: tab.profileId,
-        sql: `SELECT * FROM ${qualifiedName(profile?.engine, tab.table, tab.schema)}`,
+        sql: tableReadDescription(profile?.engine, tab.table, tab.schema),
         status: 'success',
         result: next,
         startedAt,
@@ -94,7 +99,7 @@ export const TableDataTab: React.FC<{ tab: Extract<WorkspaceTab, { kind: 'table'
       appendLog({
         level: 'info',
         source: 'table',
-        message: `${tab.table}: loaded ${pluralize(next.rowCount, 'row')} in ${formatDuration(next.executionTimeMs)}`,
+        message: `${tab.table}: loaded ${pluralize(next.rowCount, engineInfo(profile?.engine).terms.row)} in ${formatDuration(next.executionTimeMs)}`,
       });
     } catch (err) {
       if (seq !== requestSeq.current) return;
@@ -154,8 +159,21 @@ export const TableDataTab: React.FC<{ tab: Extract<WorkspaceTab, { kind: 'table'
   const tableSql = qualifiedName(profile?.engine, tab.table, tab.schema);
   const runWrite = (sql: string) => runSql(tab.id, tab.profileId, sql, { background: true, onSuccess: reload });
 
+  const documents = useDocumentEditing({
+    profileId: tab.profileId,
+    collection: isDocument ? tab.table : null,
+    result,
+    fields: columnMeta,
+    runWrite,
+    showToast,
+  });
+
   const deleteRows = (rows: unknown[][]) => {
     if (!result || rows.length === 0) return;
+    if (isDocument) {
+      documents.onDeleteRows(rows);
+      return;
+    }
     const clauses = rows.map((row) => rowWhereClause(profile?.engine, result.columns, row, columnMeta ?? []));
     const where =
       clauses.length === 1
@@ -245,7 +263,7 @@ export const TableDataTab: React.FC<{ tab: Extract<WorkspaceTab, { kind: 'table'
     <>
       {foreignKeys.length > 0 && (
         <Popover>
-          <Tooltip content={`${foreignKeys.length} foreign key relationships`}>
+          <Tooltip content={isDocument ? `${foreignKeys.length} inferred references` : `${foreignKeys.length} foreign key relationships`}>
             <PopoverTrigger asChild>
               <Button variant="quiet" size="sm" className="h-7 gap-1 text-2xs text-sky-600 dark:text-sky-400 font-medium">
                 <Link2 className="size-3" /> Foreign keys
@@ -314,8 +332,20 @@ export const TableDataTab: React.FC<{ tab: Extract<WorkspaceTab, { kind: 'table'
         fileBase={tab.table}
         server={server}
         onRefresh={reload}
-        onEditCell={isView ? undefined : (column, value, row) => setEditing({ column, value, row })}
-        onInsertRow={isView ? undefined : () => setInsertOpen(true)}
+        onEditCell={
+          isView
+            ? undefined
+            : isDocument
+              ? documents.onEditCell
+              : (column, value, row) => setEditing({ column, value, row })
+        }
+        onInsertRow={
+          isView
+            ? undefined
+            : isDocument
+              ? documents.onInsertRow
+              : () => setInsertOpen(true)
+        }
         onDeleteRows={isView ? undefined : deleteRows}
         onOpenReferencedRow={(refTable) => openTableData(tab.profileId, { name: refTable, schema: tab.schema, type: 'TABLE' })}
         toolbarExtra={toolbarExtra}
@@ -334,7 +364,8 @@ export const TableDataTab: React.FC<{ tab: Extract<WorkspaceTab, { kind: 'table'
           onClose={() => setFilterOpen(false)}
         />
       )}
-      {insertOpen && columnMeta && (
+      {documents.modals}
+      {!isDocument && insertOpen && columnMeta && (
         <InsertRowModal
           tableName={tab.table}
           qualifiedTable={tableSql}
@@ -347,7 +378,7 @@ export const TableDataTab: React.FC<{ tab: Extract<WorkspaceTab, { kind: 'table'
           onClose={() => setInsertOpen(false)}
         />
       )}
-      {editing && result && (
+      {!isDocument && editing && result && (
         <EditCellModal
           tableName={tab.table}
           qualifiedTable={tableSql}

@@ -18,6 +18,7 @@ import { QueryPart, useChat } from '../../context/ChatContext';
 import { useStudio } from '../../context/StudioContext';
 import { useWorkspace } from '../../context/WorkspaceContext';
 import { chooseChart } from '../../lib/chart';
+import { engineInfo } from '../../../shared/engines';
 import { assessRisk, engineLabel } from '../../lib/sql';
 import { cn, formatDuration, pluralize } from '../../lib/utils';
 import { QueryResultsGrid } from '../Workbench/QueryResultsGrid';
@@ -197,6 +198,7 @@ export const SqlBlock: React.FC<SqlBlockProps> = ({ conversationId, messageId, q
   const conversation = conversations.find((c) => c.id === conversationId);
   const profile = profiles.find((p) => p.id === conversation?.profileId);
   const connected = profile ? connectionStates[profile.id]?.state === 'connected' : false;
+  const languageLabel = engineInfo(profile?.engine).queryLanguage === 'mongodb' ? 'MongoDB' : 'SQL';
   const { status } = query;
   // Only a read can be re-run from here. A write has to come back through review.
   const canRerun = query.readOnly && connected && status !== 'running' && status !== 'review';
@@ -205,7 +207,7 @@ export const SqlBlock: React.FC<SqlBlockProps> = ({ conversationId, messageId, q
     <div className="mt-2 overflow-hidden rounded-md border border-border bg-background">
       <div className="flex h-7 items-center gap-1.5 border-b border-border bg-chrome pl-2 pr-1">
         <Database className="size-3 shrink-0 text-muted-foreground" />
-        <span className="text-xxs font-medium">SQL</span>
+        <span className="text-xxs font-medium">{languageLabel}</span>
         <span className="mx-0.5 h-3 w-px bg-border" />
         <ExecutionStatus query={query} />
         <div className="ml-auto flex items-center gap-0.5">
@@ -238,7 +240,7 @@ export const SqlBlock: React.FC<SqlBlockProps> = ({ conversationId, messageId, q
               <FileCode2 />
             </Button>
           </Tooltip>
-          <CopyButton text={query.sql} label="Copy SQL" />
+          <CopyButton text={query.sql} label={`Copy ${languageLabel}`} />
           {lineCount > COLLAPSE_AFTER_LINES && (
             <Tooltip content={expanded ? 'Collapse' : 'Expand'}>
               <Button variant="quiet" size="icon-xs" aria-label={expanded ? 'Collapse SQL' : 'Expand SQL'} aria-expanded={expanded} onClick={() => setExpanded((v) => !v)}>

@@ -108,6 +108,8 @@ interface PersistedWorkspace {
 }
 
 const MUTATING_DDL = /^\s*(CREATE|DROP|ALTER|TRUNCATE|RENAME)\b/i;
+/** MongoDB statements that add or remove collections or indexes; inserting can create a collection. */
+const MUTATING_MONGO = /^\s*db\b[\s\S]*?\b(createCollection|createView|dropDatabase|drop|renameCollection|createIndex|createIndexes|dropIndex|dropIndexes|insertOne|insertMany)\s*\(/;
 
 /** Thin store for the editor cursor, so typing does not re-render the whole shell. */
 const cursorListeners = new Set<() => void>();
@@ -476,7 +478,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           if (!options.explain) {
             addHistory({ sql: statement, durationMs, rowCount: result.rowCount, connectionName: profile.name });
           }
-          if (MUTATING_DDL.test(statement)) loadSchema(profileId);
+          if (MUTATING_DDL.test(statement) || MUTATING_MONGO.test(statement)) loadSchema(profileId);
           options.onSuccess?.(result);
         } catch (err) {
           if (runsRef.current[tabId]?.runId === runId && runsRef.current[tabId]?.status === 'cancelled') {

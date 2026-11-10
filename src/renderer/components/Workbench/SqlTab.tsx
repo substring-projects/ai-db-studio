@@ -3,6 +3,7 @@ import { AlignLeft, Binary, FileText, Loader2, Play, Save, Square } from 'lucide
 import { cleanError, useStudio } from '../../context/StudioContext';
 import { useSchema } from '../../context/SchemaContext';
 import { useWorkspace, WorkspaceTab } from '../../context/WorkspaceContext';
+import { engineInfo } from '../../../shared/engines';
 import { formatSql } from '../../lib/sql';
 import { shortcutLabel } from '../../lib/utils';
 import { Button } from '../ui/button';
@@ -23,6 +24,7 @@ export const SqlTab: React.FC<{ tab: Extract<WorkspaceTab, { kind: 'sql' }>; act
   const draft = drafts.find((d) => d.id === tab.draftId);
   const profileId = draft?.connectionId ?? activeProfile?.id ?? null;
   const profile = profiles.find((p) => p.id === profileId);
+  const engine = engineInfo(profile?.engine);
   const run = runs[tab.id];
   const running = run?.status === 'running';
 
@@ -52,7 +54,7 @@ export const SqlTab: React.FC<{ tab: Extract<WorkspaceTab, { kind: 'sql' }>; act
   };
 
   const format = async () => {
-    if (!draft?.sql.trim()) return;
+    if (!draft?.sql.trim() || !engine.features.format) return;
     try {
       updateDraft({ ...draft, sql: await formatSql(draft.sql, profile?.engine) });
     } catch (err) {
@@ -95,11 +97,13 @@ export const SqlTab: React.FC<{ tab: Extract<WorkspaceTab, { kind: 'sql' }>; act
           </Button>
         </Tooltip>
         <Divider />
-        <Tooltip content="Format SQL" shortcut="Shift+Alt+F">
-          <Button variant="quiet" size="sm" onClick={format} disabled={!draft.sql.trim()}>
-            <AlignLeft /> Format
-          </Button>
-        </Tooltip>
+        {engine.features.format && (
+          <Tooltip content="Format SQL" shortcut="Shift+Alt+F">
+            <Button variant="quiet" size="sm" onClick={format} disabled={!draft.sql.trim()}>
+              <AlignLeft /> Format
+            </Button>
+          </Tooltip>
+        )}
         <Tooltip content={dirty ? 'Save as the version to revert to' : 'No unsaved changes'} shortcut="Mod+S">
           <Button
             variant="quiet"
@@ -133,6 +137,7 @@ export const SqlTab: React.FC<{ tab: Extract<WorkspaceTab, { kind: 'sql' }>; act
           onFormat={format}
           onSelectionChange={setHasSelection}
           getSchema={getSchema}
+          language={engine.queryLanguage}
         />
       </div>
     </div>

@@ -3,6 +3,9 @@ import { WorkspaceTab, useWorkspace } from '../../context/WorkspaceContext';
 import { useStudio } from '../../context/StudioContext';
 import { useSchema } from '../../context/SchemaContext';
 import { ForeignKey, QueryResult } from '../../../shared/types';
+import { isSqlEngine } from '../../../shared/engines';
+import { editableCollection } from '../../../shared/mongoShell';
+import { useDocumentEditing } from './useDocumentEditing';
 import { columnKey, extractTableNameFromSql, qualifiedName, rowWhereClause } from '../../lib/sql';
 import { pluralize } from '../../lib/utils';
 import { QueryResultsGrid } from './QueryResultsGrid';
@@ -19,11 +22,35 @@ export const ResultTab: React.FC<{ tab: Extract<WorkspaceTab, { kind: 'result' }
   const [foreignKeys, setForeignKeys] = useState<ForeignKey[]>([]);
 
   const profile = tab.profileId ? profiles.find((p) => p.id === tab.profileId) : undefined;
-  const tableInfo = useMemo(() => (tab.sql ? extractTableNameFromSql(tab.sql) : null), [tab.sql]);
+  // Editing builds SQL from the query's table, so it is only offered for SQL databases.
+  const sqlEngine = isSqlEngine(profile?.engine);
+  const tableInfo = useMemo(() => (tab.sql && sqlEngine ? extractTableNameFromSql(tab.sql) : null), [tab.sql, sqlEngine]);
   const columnMeta =
     tableInfo && tab.profileId
       ? schemas[tab.profileId]?.columns[columnKey(tableInfo.table, tableInfo.schema)]
       : undefined;
+
+  // MongoDB results from a single find() can be edited by _id; the tab refreshes after each change.
+  const mongoCollection = !sqlEngine && tab.sql && tab.profileId ? editableCollection(tab.sql) : null;
+  const documents = useDocumentEditing({
+    profileId: tab.profileId ?? '',
+    collection: mongoCollection,
+    result: currentResult,
+    fields: mongoCollection && tab.profileId ? schemas[tab.profileId]?.columns[mongoCollection] : undefined,
+    runWrite: (statement) => {
+      if (!tab.profileId) return;
+      runSql(tab.id, tab.profileId, statement, {
+        background: true,
+        onSuccess: () => {
+          showToast('Operation completed', 'success');
+          if (tab.sql && tab.profileId) {
+            window.electronAPI.executeQuery(tab.profileId, tab.sql).then(setCurrentResult).catch(() => undefined);
+          }
+        },
+      });
+    },
+    showToast,
+  });
 
   useEffect(() => {
     if (!tab.profileId || !tableInfo) {
@@ -82,13 +109,15 @@ export const ResultTab: React.FC<{ tab: Extract<WorkspaceTab, { kind: 'result' }
         fileBase={tab.title}
         columnMeta={columnMeta}
         foreignKeys={foreignKeys}
-        onEditCell={tableInfo && tab.profileId ? handleEditCell : undefined}
-        onDeleteRows={tableInfo && tab.profileId ? handleDeleteRows : undefined}
+        onEditCell={tableInfo && tab.profileId ? handleEditCell : mongoCollection ? documents.onEditCell : undefined}
+        onDeleteRows={tableInfo && tab.profileId ? handleDeleteRows : mongoCollection ? documents.onDeleteRows : undefined}
+        onInsertRow={mongoCollection ? documents.onInsertRow : undefined}
         onOpenReferencedRow={(refTable) =>
           tab.profileId &&
           openTableData(tab.profileId, { name: refTable, schema: tableInfo?.schema, type: 'TABLE' })
         }
       />
+      {documents.modals}
       {editing && tableInfo && tab.profileId && (
         <EditCellModal
           tableName={tableInfo.table}

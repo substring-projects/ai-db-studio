@@ -3,6 +3,7 @@ const { app, safeStorage } = electron;
 import fs from 'node:fs';
 import path from 'node:path';
 import { ConnectionProfile, SqlDraft, QueryHistoryItem, WorkspaceSettings } from '../../shared/types';
+import { splitConnectionString } from '../../shared/engines';
 import { open, seal, type SecretCipher } from './secrets';
 
 const osCipher: SecretCipher = {
@@ -148,7 +149,18 @@ export class StorageService {
     return this.data.profiles;
   }
 
-  public saveProfile(profile: ConnectionProfile): ConnectionProfile {
+  public saveProfile(input: ConnectionProfile): ConnectionProfile {
+    // A connection string must never carry a password into the unencrypted part of the file.
+    let profile = input;
+    if (input.connectionString) {
+      const split = splitConnectionString(input.connectionString);
+      profile = {
+        ...input,
+        connectionString: split.uri,
+        username: input.username || split.username || '',
+        password: input.password || split.password,
+      };
+    }
     if (profile.password) this.locked.delete(profile.id);
     const idx = this.data.profiles.findIndex((p) => p.id === profile.id);
     if (idx >= 0) {

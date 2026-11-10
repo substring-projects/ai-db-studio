@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
+import { ENGINE_LIST, engineInfo, splitConnectionString } from '../../../shared/engines';
 import { ConnectionProfile, Engine, TlsMode } from '../../../shared/types';
 import { cleanError } from '../../context/StudioContext';
 import { cn, createId } from '../../lib/utils';
@@ -66,6 +67,12 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ profile, onSav
   const [username, setUsername] = useState(profile?.username ?? 'postgres');
   const [password, setPassword] = useState(profile?.password ?? '');
   const [tlsMode, setTlsMode] = useState<TlsMode>(profile?.tlsMode ?? 'PREFER');
+  const [connectionString, setConnectionString] = useState(profile?.connectionString ?? '');
+  const [authSource, setAuthSource] = useState(profile?.authSource ?? '');
+  const info = engineInfo(engine);
+  const usesConnectionString = info.features.connectionString && connectionString.trim() !== '';
+  /** MongoDB servers often run without authentication, so a username is optional there. */
+  const usernameRequired = info.family === 'sql';
 
   const [testing, setTesting] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -80,10 +87,24 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ profile, onSav
     setEngine(next);
     setTestResult(null);
     if (!profile) {
-      setPort(next === 'POSTGRESQL' ? 5432 : 3306);
-      setDatabase(next === 'POSTGRESQL' ? 'postgres' : 'mysql');
-      setUsername(next === 'POSTGRESQL' ? 'postgres' : 'root');
+      const { defaults } = engineInfo(next);
+      setPort(defaults.port);
+      setDatabase(defaults.database);
+      setUsername(defaults.username);
     }
+  };
+
+  /** A pasted connection string keeps its credentials out of the string, so the password is encrypted. */
+  const changeConnectionString = (value: string) => {
+    const split = splitConnectionString(value);
+    setConnectionString(split.uri);
+    if (split.username) setUsername(split.username);
+    if (split.password) setPassword(split.password);
+    const host = split.uri.match(/^mongodb(?:\+srv)?:\/\/([^/?,:]+)/i)?.[1];
+    if (host) setHost(host);
+    const db = split.uri.match(/^mongodb(?:\+srv)?:\/\/[^/]+\/([^?]+)/i)?.[1];
+    if (db) setDatabase(decodeURIComponent(db));
+    setTestResult(null);
   };
 
   const candidate = (): ConnectionProfile => ({
@@ -96,6 +117,9 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ profile, onSav
     username: username.trim(),
     tlsMode,
     password,
+    ...(info.features.connectionString
+      ? { connectionString: connectionString.trim() || undefined, authSource: authSource.trim() || undefined }
+      : {}),
   });
 
   const test = async () => {
@@ -137,10 +161,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ profile, onSav
                   label="Database type"
                   value={engine}
                   onChange={changeEngine}
-                  options={[
-                    { value: 'POSTGRESQL', label: 'PostgreSQL' },
-                    { value: 'MYSQL', label: 'MySQL' },
-                  ]}
+                  options={ENGINE_LIST.map((e) => ({ value: e.id, label: e.label }))}
                 />
               </Field>
               <Field label="Name" htmlFor="conn-name">
@@ -153,14 +174,31 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ profile, onSav
                 />
               </Field>
             </div>
+            {info.features.connectionString && (
+              <Field label="Connection string (optional)" htmlFor="conn-uri">
+                <Input
+                  id="conn-uri"
+                  value={connectionString}
+                  onChange={(e) => changeConnectionString(e.target.value)}
+                  placeholder="mongodb+srv://cluster0.example.mongodb.net/?retryWrites=true"
+                  className="font-mono"
+                />
+                <p className="text-2xs leading-[14px] text-muted-foreground">
+                  {usesConnectionString
+                    ? 'Host and port come from the connection string. A username and password in it are moved to the fields below.'
+                    : 'For Atlas and replica sets. Leave empty to use host and port.'}
+                </p>
+              </Field>
+            )}
             <div className="grid grid-cols-[1fr_88px] gap-3">
               <Field label="Host" htmlFor="conn-host">
-                <Input id="conn-host" required value={host} onChange={(e) => setHost(e.target.value)} className="font-mono" />
+                <Input id="conn-host" required={!usesConnectionString} disabled={usesConnectionString} value={host} onChange={(e) => setHost(e.target.value)} className="font-mono" />
               </Field>
               <Field label="Port" htmlFor="conn-port">
                 <Input
                   id="conn-port"
-                  required
+                  required={!usesConnectionString}
+                  disabled={usesConnectionString}
                   type="number"
                   min={1}
                   max={65535}
@@ -170,12 +208,29 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ profile, onSav
                 />
               </Field>
             </div>
-            <Field label="Database" htmlFor="conn-db">
-              <Input id="conn-db" required value={database} onChange={(e) => setDatabase(e.target.value)} className="font-mono" />
-            </Field>
+            <div className={cn('grid gap-3', info.features.connectionString ? 'grid-cols-2' : 'grid-cols-1')}>
+              <Field label="Database" htmlFor="conn-db">
+                <Input id="conn-db" required value={database} onChange={(e) => setDatabase(e.target.value)} className="font-mono" />
+              </Field>
+              {info.features.connectionString && (
+                <Field label="Auth database" htmlFor="conn-auth-source">
+                  <Input
+                    id="conn-auth-source"
+                    value={authSource}
+                    onChange={(e) => setAuthSource(e.target.value)}
+                    placeholder="admin"
+                    className="font-mono"
+                  />
+                </Field>
+              )}
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Username" htmlFor="conn-user">
-                <Input id="conn-user" required value={username} onChange={(e) => setUsername(e.target.value)} className="font-mono" />
+                <Input
+                  id="conn-user"
+                  required={usernameRequired}
+                  placeholder={usernameRequired ? undefined : 'none'}
+                  value={username} onChange={(e) => setUsername(e.target.value)} className="font-mono" />
               </Field>
               <Field label="Password" htmlFor="conn-password">
                 <Input id="conn-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
@@ -216,7 +271,11 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ profile, onSav
             )}
           </DialogBody>
           <DialogFooter className="justify-between">
-            <Button variant="outline" onClick={test} disabled={testing || !host || !database || !username}>
+            <Button
+              variant="outline"
+              onClick={test}
+              disabled={testing || (!host && !usesConnectionString) || !database || (usernameRequired && !username)}
+            >
               {testing && <Loader2 className="animate-spin" />}
               {testing ? 'Testing…' : 'Test connection'}
             </Button>

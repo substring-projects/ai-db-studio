@@ -11,6 +11,9 @@ Main direct dependencies:
 | [Monaco Editor](https://github.com/microsoft/monaco-editor) | SQL editor | MIT |
 | [node-postgres](https://github.com/brianc/node-postgres) | PostgreSQL driver | MIT |
 | [MySQL2](https://github.com/sidorares/node-mysql2) | MySQL driver | MIT |
+| [MongoDB Node.js driver](https://github.com/mongodb/node-mongodb-native) (with `bson`) | MongoDB driver | Apache-2.0 |
+| [ejson-shell-parser](https://github.com/mongodb-js/ejson-shell-parser) | Parsing MongoDB shell values without running code | MIT |
+| [Acorn](https://github.com/acornjs/acorn) | Parsing MongoDB shell statements | MIT |
 | [LangChain.js](https://github.com/langchain-ai/langchainjs) (`@langchain/core`, `@langchain/openai`, `@langchain/ollama`) | AI assistant | MIT |
 | [TanStack Table and Virtual](https://github.com/TanStack) | Results grid | MIT |
 | [Radix UI](https://github.com/radix-ui/primitives) | Interface components | MIT |

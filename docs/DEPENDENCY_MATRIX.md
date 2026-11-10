@@ -11,7 +11,8 @@
 | TanStack Table and Virtual | Results grid |
 | react-resizable-panels, cmdk | Layout and command palette |
 | react-markdown, remark-gfm | Rendering AI replies |
-| pg, mysql2 | Database drivers |
+| pg, mysql2, mongodb | Database drivers |
+| acorn, ejson-shell-parser | Parsing MongoDB shell statements without running them |
 | LangChain (`@langchain/core`, `@langchain/openai`, `@langchain/ollama`), Zod | AI assistant |
 
 Exact versions are in `package.json` and `package-lock.json`. Interface and AI libraries are bundled at build time, so they are listed as development dependencies.

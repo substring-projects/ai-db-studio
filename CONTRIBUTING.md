@@ -26,6 +26,14 @@ npm run build
 - `src/renderer`: the React interface. It reaches the database and AI only through `window.electronAPI`.
 - `src/shared`: types used by more than one process.
 
+## Adding a database
+
+1. Add the engine to `Engine` in `src/shared/types.ts` and describe it in `src/shared/engines.ts`: label, defaults, the words the interface uses (table or collection) and which features apply. The interface checks these features rather than engine names.
+2. Write a driver in `src/main/services/drivers/` that implements `DatabaseDriver`, and register it in `drivers/index.ts`. A SQL database can extend `SqlDriver` to reuse filtering, paging, statement classification and the read-only rules; SQLite, for example, needs mostly the connection, metadata queries and `rawExecute`.
+3. Give the driver its own `classify` and `checkStrictReadOnly` if its query language is not SQL. Writes then need approval and AI queries stay read-only without changes elsewhere.
+4. If the interface writes statements for it (browse, drop, edits), add a branch in `src/renderer/lib/statements.ts`.
+5. Add tests, and add the driver package to `external` in `vite.config.ts` when it has native or optional dependencies.
+
 Keep decisions about what is safe to run in the main process, where tests can cover them and the interface and model can't bypass them. `src/main/services/ai/agent.ts` takes its dependencies as arguments so its rules can be tested without Electron.
 
 ## Pull requests

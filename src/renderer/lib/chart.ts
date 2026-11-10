@@ -1,5 +1,5 @@
 import type { QueryResult } from '../../shared/types';
-import { inferColumnKind, formatCell } from './grid.ts';
+import { ejsonScalar, inferColumnKind, formatCell } from './grid.ts';
 
 export type ChartForm = 'stat' | 'bar' | 'line';
 
@@ -25,7 +25,8 @@ const MAX_SERIES = 4;
 /** Series this far below the largest are unreadable on one shared axis, so they stay in the table. */
 const MAGNITUDE_RANGE = 100;
 
-const toNumber = (value: unknown): number | null => {
+const toNumber = (raw: unknown): number | null => {
+  const value = ejsonScalar(raw);
   if (value === null || value === undefined || value === '') return null;
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
@@ -72,7 +73,7 @@ export function chooseChart(result: QueryResult): ChartSpec | null {
 
   let times: number[] | undefined;
   if (isLine) {
-    const withTime = rows.map((row) => ({ row, time: new Date(row[xIndex] as string).getTime() }));
+    const withTime = rows.map((row) => ({ row, time: new Date(ejsonScalar(row[xIndex]) as string).getTime() }));
     if (withTime.some((p) => Number.isNaN(p.time))) return null;
     withTime.sort((a, b) => a.time - b.time);
     rows = withTime.map((p) => p.row);

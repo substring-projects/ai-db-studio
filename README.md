@@ -5,7 +5,7 @@
 <h1 align="center">AI DB Studio</h1>
 
 <p align="center">
-  <strong>A desktop database client for PostgreSQL and MySQL, with an AI assistant that can't change your data without your approval.</strong>
+  <strong>A desktop database client for PostgreSQL, MySQL and MongoDB, with an AI assistant that can't change your data without your approval.</strong>
 </p>
 
 <p align="center">
@@ -38,6 +38,7 @@ The assistant runs safe read queries on its own and shows you the results. Anyth
 - **Results grid:** virtualized rendering, with column resizing, sorting, per-column filters, row selection, keyboard navigation, and copy or export to CSV and JSON.
 - **Table data:** page, sort and filter on the server, and insert, edit or delete rows after reviewing the generated SQL. Foreign key columns offer a searchable list of the rows they can point to.
 - **Create table:** design columns, types, keys, auto-increment, defaults, checks, foreign keys and indexes, with a live preview of the SQL.
+- **MongoDB:** connect with host and port or a connection string (Atlas, replica sets), browse collections with fields sampled from documents, filter, sort and page on the server, and run shell commands such as `db.users.find({ age: { $gt: 30 } }).sort({ name: 1 })`. Edit a field, a whole document, or insert and delete documents, from the collection view or from `find()` results; BSON types such as ObjectId, dates and decimals are kept. Create collections (standard, capped or time series) with validation rules and indexes, and see an ER diagram built from references inferred from ObjectId fields. The AI assistant writes and runs MongoDB commands too. Writes wait for your approval like SQL changes, and the shell syntax is parsed, never run as JavaScript.
 - **Table structure:** columns, indexes, foreign keys, constraints, size and DDL for every table.
 - **Schema explorer:** connections, schemas, tables, views, columns, keys and indexes in one searchable tree, with full keyboard support.
 - **Workspace:** draggable tabs, a results panel with logs and statistics, query history, a command palette, and dark and light themes. Your layout and open tabs are restored when you reopen the app.
@@ -176,6 +177,7 @@ On Windows, use `Ctrl` in place of `⌘`.
 | :--- | :--- |
 | **PostgreSQL** | Tested with version 17 |
 | **MySQL** | Tested with version 8.4 |
+| **MongoDB** | Tested with version 7.0 (driver supports 4.2 and later) |
 | **Other versions, MariaDB, cloud-hosted databases** | Not tested. They may work, but aren't verified yet |
 | **macOS** | Developed and tested on macOS |
 | **Windows** | Installers are configured, but this version hasn't been tested on Windows |
@@ -227,7 +229,8 @@ src/
 │   ├── main.ts             Window, menu and IPC handlers
 │   └── services/
 │       ├── ai/             LangChain agent, conversation memory, review flow
-│       ├── ConnectionManager.ts   Connections, queries, cancellation, metadata
+│       ├── drivers/        One driver per database (sql/ for PostgreSQL and MySQL, mongo/)
+│       ├── ConnectionManager.ts   Open connections, write approvals, AI read-only gate
 │       ├── SqlClassifier.ts       Decides what is read-only
 │       └── StorageService.ts      Local settings and saved data
 ├── preload/                The typed bridge between main and renderer
@@ -239,7 +242,7 @@ src/
 │   │   └── ui/             Shared components built on Radix
 │   ├── context/            Application state
 │   └── lib/                SQL, grid, chart and Monaco helpers
-└── shared/                 Types shared across processes
+└── shared/                 Types, the engine catalog and MongoDB shell helpers
 test/                       Unit tests
 ```
 

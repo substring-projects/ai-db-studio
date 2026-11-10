@@ -1,4 +1,5 @@
 import type { FilterOperator, FilterRule } from '../../shared/types';
+import { describeEjson, isEjsonWrapper } from '../../shared/mongoShell.ts';
 
 export type ColumnKind = 'number' | 'text' | 'boolean' | 'date' | 'json' | 'binary' | 'enum' | 'uuid' | 'array' | 'unknown';
 
@@ -11,8 +12,25 @@ export function formatCell(value: unknown): string {
     const hex = Array.from(value.slice(0, 32), (b) => b.toString(16).padStart(2, '0')).join('');
     return `0x${hex}${value.length > 32 ? '…' : ''}`;
   }
-  if (typeof value === 'object') return JSON.stringify(value);
+  if (typeof value === 'object') {
+    // MongoDB values arrive as Extended JSON wrappers such as { $oid: "…" }.
+    const bson = describeEjson(value);
+    return bson ?? JSON.stringify(value);
+  }
   return String(value);
+}
+
+/**
+ * The plain value behind a MongoDB Extended JSON wrapper: numbers for { $numberDecimal: "9.5" }
+ * and friends, ISO text for { $date: … }. Anything else is returned as it is, so SQL values
+ * are never touched.
+ */
+export function ejsonScalar(value: unknown): unknown {
+  if (!isEjsonWrapper(value)) return value;
+  const [key, inner] = Object.entries(value)[0] as [string, any];
+  if (key === '$numberDecimal' || key === '$numberLong' || key === '$numberInt' || key === '$numberDouble') return Number(inner);
+  if (key === '$date') return describeEjson(value);
+  return value;
 }
 
 export function kindFromTypeName(typeName: string): ColumnKind {
@@ -38,6 +56,12 @@ export function inferColumnKind(rows: unknown[][], index: number): ColumnKind {
     if (value instanceof Date) return 'date';
     if (value instanceof Uint8Array) return 'binary';
     if (Array.isArray(value)) return 'array';
+    if (isEjsonWrapper(value)) {
+      const key = Object.keys(value)[0];
+      if (key === '$date') return 'date';
+      if (/^\$number/.test(key)) return 'number';
+      return 'text';
+    }
     if (typeof value === 'object') return 'json';
     const s = String(value);
     if (/^(true|false)$/i.test(s)) return 'boolean';
@@ -49,7 +73,9 @@ export function inferColumnKind(rows: unknown[][], index: number): ColumnKind {
   return 'unknown';
 }
 
-function compareRaw(a: unknown, b: unknown): number {
+function compareRaw(rawA: unknown, rawB: unknown): number {
+  const a = ejsonScalar(rawA);
+  const b = ejsonScalar(rawB);
   const left = Number(a);
   const right = Number(b);
   if (a !== '' && b !== '' && !Number.isNaN(left) && !Number.isNaN(right) && typeof a !== 'object' && typeof b !== 'object') {

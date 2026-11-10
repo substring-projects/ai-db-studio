@@ -28,7 +28,9 @@ import { ConnectionProfile, DbTable } from '../../../shared/types';
 import { cleanError, useStudio } from '../../context/StudioContext';
 import { SchemaEntry, structureKey, useSchema } from '../../context/SchemaContext';
 import { useWorkspace } from '../../context/WorkspaceContext';
-import { columnKey, engineLabel, qualifiedName } from '../../lib/sql';
+import { engineInfo } from '../../../shared/engines';
+import { columnKey, engineLabel } from '../../lib/sql';
+import { browseQuery, dropTableStatement, truncateLabel, truncateStatement } from '../../lib/statements';
 import { cn, createId, formatCount, prefs } from '../../lib/utils';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -47,6 +49,7 @@ import {
 } from '../ui/menu';
 import { ConnectionDropdownContent } from '../shell/ConnectionDropdownContent';
 import { CreateTableModal } from '../Modals/CreateTableModal';
+import { CreateCollectionModal } from '../Modals/CreateCollectionModal';
 
 const ROW_HEIGHT = 22;
 const INDENT = 12;
@@ -90,6 +93,7 @@ export const DatabaseExplorer: React.FC = () => {
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const [menuNode, setMenuNode] = useState<Node | null>(null);
   const [createFor, setCreateFor] = useState<{ profile: ConnectionProfile; schema?: string } | null>(null);
+  const [createCollectionFor, setCreateCollectionFor] = useState<ConnectionProfile | null>(null);
   const [structureErrors, setStructureErrors] = useState<Record<string, string>>({});
   const scrollerRef = useRef<HTMLDivElement>(null);
 
@@ -120,7 +124,15 @@ export const DatabaseExplorer: React.FC = () => {
       const fkColumns = new Set(structure?.foreignKeys.map((fk) => fk.column));
 
       const columnsId = `${id}:columns`;
-      out.push({ kind: 'section', id: columnsId, depth: depth + 1, label: 'Columns', count: columns.length, icon: Columns3 });
+      const columnsLabel = engineInfo(profile.engine).terms.columns;
+      out.push({
+        kind: 'section',
+        id: columnsId,
+        depth: depth + 1,
+        label: columnsLabel.charAt(0).toUpperCase() + columnsLabel.slice(1),
+        count: columns.length,
+        icon: Columns3,
+      });
       if (expanded.has(columnsId)) {
         for (const column of columns) {
           out.push({
@@ -234,8 +246,9 @@ export const DatabaseExplorer: React.FC = () => {
         out.push({ kind: 'schema', id: schemaId, depth: 1, profile, name, count: inSchema.length });
         if (!schemaOpen) continue;
 
+        const tablesLabel = engineInfo(profile.engine).terms.tables;
         for (const [type, label, icon] of [
-          ['TABLE', 'Tables', Table2],
+          ['TABLE', tablesLabel.charAt(0).toUpperCase() + tablesLabel.slice(1), Table2],
           ['VIEW', 'Views', Eye],
         ] as const) {
           const objects = inSchema.filter((t) => t.type === type);
@@ -438,7 +451,11 @@ export const DatabaseExplorer: React.FC = () => {
               variant="quiet"
               size="icon-sm"
               aria-label="View ER diagram"
-              disabled={!activeProfile || connectionStates[activeProfile.id]?.state !== 'connected'}
+              disabled={
+                !activeProfile ||
+                connectionStates[activeProfile.id]?.state !== 'connected' ||
+                !engineInfo(activeProfile.engine).features.erDiagram
+              }
               onClick={() => activeProfile && openErDiagram(activeProfile.id)}
             >
               <Network />
@@ -519,7 +536,7 @@ export const DatabaseExplorer: React.FC = () => {
                         <StatusDot status={state} className="mx-[4px]" />
                         <span className={cn('min-w-0 truncate', isActiveConnection && 'font-medium')}>{node.profile.name}</span>
                         <Badge mono variant="outline" title={engineLabel(node.profile.engine)} className="px-0.5">
-                          {node.profile.engine === 'POSTGRESQL' ? 'PG' : 'MY'}
+                          {engineInfo(node.profile.engine).badge}
                         </Badge>
                         {state === 'connecting' && <Loader2 className="ml-auto mr-1 size-3 shrink-0 animate-spin text-muted-foreground" />}
                         {state === 'connected' && schemas[node.profile.id]?.status === 'ready' && (
@@ -645,12 +662,21 @@ export const DatabaseExplorer: React.FC = () => {
                   <ContextMenuItem onSelect={() => loadSchema(menuNode.profile.id)}>
                     <RefreshCw /> Refresh schema
                   </ContextMenuItem>
-                  <ContextMenuItem onSelect={() => openErDiagram(menuNode.profile.id)}>
-                    <Network /> View ER diagram
-                  </ContextMenuItem>
-                  <ContextMenuItem onSelect={() => setCreateFor({ profile: menuNode.profile })}>
-                    <Plus /> Create table…
-                  </ContextMenuItem>
+                  {engineInfo(menuNode.profile.engine).features.erDiagram && (
+                    <ContextMenuItem onSelect={() => openErDiagram(menuNode.profile.id)}>
+                      <Network /> View ER diagram
+                    </ContextMenuItem>
+                  )}
+                  {engineInfo(menuNode.profile.engine).features.createTable && (
+                    <ContextMenuItem onSelect={() => setCreateFor({ profile: menuNode.profile })}>
+                      <Plus /> Create table…
+                    </ContextMenuItem>
+                  )}
+                  {engineInfo(menuNode.profile.engine).features.createCollection && (
+                    <ContextMenuItem onSelect={() => setCreateCollectionFor(menuNode.profile)}>
+                      <Plus /> Create collection…
+                    </ContextMenuItem>
+                  )}
                   <ContextMenuSeparator />
                   <ContextMenuItem onSelect={() => disconnectProfile(menuNode.profile.id)}>
                     <Unplug /> Disconnect
@@ -685,7 +711,7 @@ export const DatabaseExplorer: React.FC = () => {
               <ContextMenuItem
                 onSelect={() =>
                   newQuery(
-                    `SELECT *\nFROM ${qualifiedName(menuNode.profile.engine, menuNode.table.name, menuNode.table.schema)}\nLIMIT 100;`,
+                    browseQuery(menuNode.profile.engine, menuNode.table.name, menuNode.table.schema),
                     menuNode.table.name,
                     menuNode.profile.id
                   )
@@ -700,27 +726,29 @@ export const DatabaseExplorer: React.FC = () => {
               {menuNode.table.type === 'TABLE' && (
                 <>
                   <ContextMenuSeparator />
+                  {truncateStatement(menuNode.profile.engine, menuNode.table.name, menuNode.table.schema) && (
+                    <ContextMenuItem
+                      destructive
+                      onSelect={() =>
+                        runBackground(
+                          menuNode.profile,
+                          truncateStatement(menuNode.profile.engine, menuNode.table.name, menuNode.table.schema)!
+                        )
+                      }
+                    >
+                      <AlertTriangle /> {truncateLabel(menuNode.profile.engine)}
+                    </ContextMenuItem>
+                  )}
                   <ContextMenuItem
                     destructive
                     onSelect={() =>
                       runBackground(
                         menuNode.profile,
-                        `TRUNCATE TABLE ${qualifiedName(menuNode.profile.engine, menuNode.table.name, menuNode.table.schema)};`
+                        dropTableStatement(menuNode.profile.engine, menuNode.table.name, menuNode.table.schema)
                       )
                     }
                   >
-                    <AlertTriangle /> Truncate table…
-                  </ContextMenuItem>
-                  <ContextMenuItem
-                    destructive
-                    onSelect={() =>
-                      runBackground(
-                        menuNode.profile,
-                        `DROP TABLE ${qualifiedName(menuNode.profile.engine, menuNode.table.name, menuNode.table.schema)};`
-                      )
-                    }
-                  >
-                    <Trash2 /> Drop table…
+                    <Trash2 /> Drop {engineInfo(menuNode.profile.engine).terms.table}…
                   </ContextMenuItem>
                 </>
               )}
@@ -728,20 +756,27 @@ export const DatabaseExplorer: React.FC = () => {
           )}
           {(menuNode?.kind === 'schema' || menuNode?.kind === 'group') && (
             <ContextMenuContent>
-              <ContextMenuItem
-                onSelect={() =>
-                  setCreateFor({
-                    profile: menuNode.profile,
-                    schema: menuNode.kind === 'schema' ? menuNode.name : menuNode.schema,
-                  })
-                }
-              >
-                <Plus /> Create table…
-              </ContextMenuItem>
+              {engineInfo(menuNode.profile.engine).features.createTable && (
+                <ContextMenuItem
+                  onSelect={() =>
+                    setCreateFor({
+                      profile: menuNode.profile,
+                      schema: menuNode.kind === 'schema' ? menuNode.name : menuNode.schema,
+                    })
+                  }
+                >
+                  <Plus /> Create table…
+                </ContextMenuItem>
+              )}
+              {engineInfo(menuNode.profile.engine).features.createCollection && (
+                <ContextMenuItem onSelect={() => setCreateCollectionFor(menuNode.profile)}>
+                  <Plus /> Create collection…
+                </ContextMenuItem>
+              )}
               <ContextMenuItem onSelect={() => loadSchema(menuNode.profile.id)}>
                 <RefreshCw /> Refresh schema
               </ContextMenuItem>
-              {menuNode.kind === 'schema' && (
+              {menuNode.kind === 'schema' && engineInfo(menuNode.profile.engine).features.erDiagram && (
                 <ContextMenuItem onSelect={() => openErDiagram(menuNode.profile.id, menuNode.name)}>
                   <Network /> View ER diagram
                 </ContextMenuItem>
@@ -775,6 +810,13 @@ export const DatabaseExplorer: React.FC = () => {
           profileId={createFor.profile.id}
           onExecuteDdl={(ddl) => runBackground(createFor.profile, ddl)}
           onClose={() => setCreateFor(null)}
+        />
+      )}
+      {createCollectionFor && (
+        <CreateCollectionModal
+          database={createCollectionFor.database}
+          onExecute={(statements) => runBackground(createCollectionFor, statements)}
+          onClose={() => setCreateCollectionFor(null)}
         />
       )}
     </div>

@@ -1,3 +1,4 @@
+import { engineInfo } from '../../shared/engines.ts';
 import type { DbTable, Engine, TableColumn } from '../../shared/types';
 
 export function quoteIdent(engine: Engine | undefined, name: string): string {
@@ -16,7 +17,7 @@ export function columnKey(table: string, schema?: string): string {
 }
 
 export function engineLabel(engine: Engine | undefined): string {
-  return engine === 'MYSQL' ? 'MySQL' : 'PostgreSQL';
+  return engineInfo(engine).label;
 }
 
 /**
@@ -90,8 +91,25 @@ export interface SqlRisk {
   reasons: string[];
 }
 
+/** Warnings for MongoDB shell statements, which the SQL checks below don't understand. */
+function assessMongoRisk(text: string): string[] {
+  const reasons: string[] = [];
+  const code = text.replace(/\/\/[^\n]*/g, ' ').replace(/\/\*[\s\S]*?\*\//g, ' ');
+  if (/\.dropDatabase\s*\(/.test(code)) reasons.push('Permanently removes the whole database and every collection in it.');
+  if (/\.drop\s*\(\s*\)/.test(code)) reasons.push('Permanently removes the collection and all its documents.');
+  if (/\.deleteMany\s*\(\s*(\{\s*\})?\s*[,)]/.test(code)) reasons.push('deleteMany has an empty filter: every document will be removed.');
+  if (/\.updateMany\s*\(\s*\{\s*\}\s*,/.test(code)) reasons.push('updateMany has an empty filter: every document will be changed.');
+  if (/\.(dropIndex|dropIndexes)\s*\(/.test(code)) reasons.push('Removes indexes, which can slow down queries that use them.');
+  if (/["']?\$(out|merge)["']?\s*:/.test(code)) reasons.push('The pipeline writes its output to a collection, replacing or changing its documents.');
+  return reasons;
+}
+
 /** Explains why a statement deserves extra care. The backend still enforces approval. */
 export function assessRisk(sql: string): SqlRisk {
+  if (/^\s*db\b/.test(sql)) {
+    const reasons = assessMongoRisk(sql);
+    return { high: reasons.length > 0, reasons: [...new Set(reasons)] };
+  }
   const reasons: string[] = [];
   for (const statement of codeOnly(sql).split(';')) {
     const code = statement.trim();
@@ -161,6 +179,7 @@ export function buildSchemaContext(
   columns: Record<string, TableColumn[]>
 ): string {
   if (tables.length === 0) return '';
+  const document = engineInfo(engine).family === 'document';
   const lines = tables.map((t) => {
     const cols = columns[columnKey(t.name, t.schema)] || [];
     const defs =
@@ -170,7 +189,10 @@ export function buildSchemaContext(
             .join(', ')
         : 'columns unknown';
     const name = t.schema && t.schema !== 'public' ? `"${t.schema}"."${t.name}"` : `"${t.name}"`;
-    return `TABLE ${name} (${defs});`;
+    return document ? `COLLECTION ${name} (${defs});` : `TABLE ${name} (${defs});`;
   });
-  return [`-- SQL dialect: ${engineLabel(engine)}`, ...lines].join('\n');
+  const header = document
+    ? `-- Database: ${engineLabel(engine)}. Fields are sampled from documents and may vary between them.`
+    : `-- SQL dialect: ${engineLabel(engine)}`;
+  return [header, ...lines].join('\n');
 }

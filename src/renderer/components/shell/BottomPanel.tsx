@@ -5,6 +5,9 @@ import { useStudio } from '../../context/StudioContext';
 import { useSchema } from '../../context/SchemaContext';
 import { ForeignKey } from '../../../shared/types';
 import { cn, formatCount, formatDuration, pluralize } from '../../lib/utils';
+import { isSqlEngine } from '../../../shared/engines';
+import { editableCollection } from '../../../shared/mongoShell';
+import { useDocumentEditing } from '../Workbench/useDocumentEditing';
 import { columnKey, engineLabel, extractTableNameFromSql, qualifiedName, rowWhereClause } from '../../lib/sql';
 import { QueryResultsGrid } from '../Workbench/QueryResultsGrid';
 import { EditCellModal } from '../Modals/EditCellModal';
@@ -153,11 +156,37 @@ const SqlTabResultGrid: React.FC<{
   const [foreignKeys, setForeignKeys] = useState<ForeignKey[]>([]);
 
   const profile = tabRun?.profileId ? profiles.find((p) => p.id === tabRun.profileId) : undefined;
-  const tableInfo = useMemo(() => (tabRun?.sql ? extractTableNameFromSql(tabRun.sql) : null), [tabRun?.sql]);
+  // Editing builds SQL from the query's table, so it is only offered for SQL databases.
+  const sqlEngine = isSqlEngine(profile?.engine);
+  const tableInfo = useMemo(
+    () => (tabRun?.sql && sqlEngine ? extractTableNameFromSql(tabRun.sql) : null),
+    [tabRun?.sql, sqlEngine]
+  );
   const columnMeta =
     tableInfo && tabRun?.profileId
       ? schemas[tabRun.profileId]?.columns[columnKey(tableInfo.table, tableInfo.schema)]
       : undefined;
+
+  // MongoDB results from a single find() can be edited by _id.
+  const mongoCollection = !sqlEngine && tabRun?.sql ? editableCollection(tabRun.sql) : null;
+  const documents = useDocumentEditing({
+    profileId: tabRun?.profileId ?? '',
+    collection: mongoCollection,
+    result: tabRun?.result,
+    fields: mongoCollection && tabRun?.profileId ? schemas[tabRun.profileId]?.columns[mongoCollection] : undefined,
+    runWrite: (statement) => {
+      if (!tabRun) return;
+      const originalSql = tabRun.sql;
+      runSql(tab.id, tabRun.profileId, statement, {
+        background: true,
+        onSuccess: () => {
+          showToast('Operation completed', 'success');
+          runSql(tab.id, tabRun.profileId, originalSql);
+        },
+      });
+    },
+    showToast,
+  });
 
   useEffect(() => {
     if (!tabRun?.profileId || !tableInfo) {
@@ -217,9 +246,9 @@ const SqlTabResultGrid: React.FC<{
         fileBase="query-results"
         onCancel={() => cancelRun(tab.id)}
         onRefresh={() => runSql(tab.id, tabRun.profileId, tabRun.sql)}
-        onEditCell={tableInfo ? handleEditCell : undefined}
-        onDeleteRows={tableInfo ? handleDeleteRows : undefined}
-        onInsertRow={tableInfo && columnMeta ? () => setInsertOpen(true) : undefined}
+        onEditCell={tableInfo ? handleEditCell : mongoCollection ? documents.onEditCell : undefined}
+        onDeleteRows={tableInfo ? handleDeleteRows : mongoCollection ? documents.onDeleteRows : undefined}
+        onInsertRow={tableInfo && columnMeta ? () => setInsertOpen(true) : mongoCollection ? documents.onInsertRow : undefined}
         onOpenReferencedRow={(refTable) =>
           tabRun?.profileId &&
           openTableData(tabRun.profileId, { name: refTable, schema: tableInfo?.schema, type: 'TABLE' })
@@ -246,6 +275,7 @@ const SqlTabResultGrid: React.FC<{
           onClose={() => setEditing(null)}
         />
       )}
+      {documents.modals}
       {insertOpen && columnMeta && tableInfo && profile && (
         <InsertRowModal
           tableName={tableInfo.table}

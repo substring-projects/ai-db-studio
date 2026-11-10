@@ -5,6 +5,7 @@ import { ChatOpenAI } from '@langchain/openai';
 import type { AiChatRequest, AiEvent, WorkspaceSettings } from '../../../shared/types';
 import { AiService } from '../AiService';
 import type { ConnectionManager } from '../ConnectionManager';
+import { engineInfo } from '../../../shared/engines';
 import { SqlClassifier } from '../SqlClassifier';
 import { type AgentModel, runAgentTurn } from './agent';
 import { ChatMemoryStore } from './memory';
@@ -63,8 +64,9 @@ export class ChatAgentService {
     this.active.set(request.requestId, active);
 
     const { conversationId, turnId, prompt, profileId } = request;
-    const canQuery = Boolean(profileId && this.connections.isConnected(profileId));
     const profile = profileId ? this.connections.getProfile(profileId) : undefined;
+    // Only databases whose query language the assistant is prepared for get the query tools.
+    const canQuery = Boolean(profileId && this.connections.isConnected(profileId) && engineInfo(profile?.engine).features.aiQueries);
     const modelKey = `${settings.aiProvider}:${settings.aiModel}`;
     const model = createModel(settings);
 
@@ -90,7 +92,10 @@ export class ChatAgentService {
       signal: controller.signal,
       emit,
       createId: () => crypto.randomUUID(),
-      checkSafe: (sql: string) => SqlClassifier.checkStrictReadOnly(sql),
+      checkSafe: (sql: string) =>
+        profileId && this.connections.isConnected(profileId)
+          ? this.connections.checkStrictReadOnly(profileId, sql)
+          : SqlClassifier.checkStrictReadOnly(sql),
       runReadOnly: (sql: string, queryId: string) => this.connections.executeReadOnly(profileId!, sql, queryId),
       runApproved: (sql: string, queryId: string) => {
         // The token is issued at the moment of approval and is bound to this exact statement.
@@ -124,10 +129,12 @@ export class ChatAgentService {
       summary: this.memory.summary(conversationId),
       schemaContext: request.schemaContext,
       connectionName: profile?.name ?? null,
-      engineName: profile ? (profile.engine === 'MYSQL' ? 'MySQL' : 'PostgreSQL') : null,
+      engineName: profile ? engineInfo(profile.engine).label : null,
       canQuery,
+      queryUnsupported: Boolean(profileId && this.connections.isConnected(profileId) && !canQuery),
       autoRun: request.autoRun,
       shareResults: Boolean(settings.aiShareResults),
+      queryLanguage: engineInfo(profile?.engine).queryLanguage,
     };
 
     try {

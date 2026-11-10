@@ -1,7 +1,7 @@
 import React, { useEffect, useImperativeHandle, useRef } from 'react';
 import { useStudio } from '../../context/StudioContext';
 import { editorCursorStore } from '../../context/WorkspaceContext';
-import { CompletionSchema, monaco, monacoTheme, registerSchemaSource } from '../../lib/monaco';
+import { CompletionSchema, editorLanguage, monaco, monacoTheme, registerSchemaSource } from '../../lib/monaco';
 import { prefs } from '../../lib/utils';
 
 export interface SqlEditorHandle {
@@ -21,13 +21,20 @@ interface SqlEditorProps {
   onFormat: () => void;
   onSelectionChange: (hasSelection: boolean) => void;
   getSchema: () => CompletionSchema | undefined;
+  /** Query language of the selected connection. Defaults to SQL. */
+  language?: 'sql' | 'mongodb';
 }
+
+const PLACEHOLDER = {
+  sql: 'Write SQL here, or press the run shortcut to execute it',
+  mongodb: 'Write a MongoDB command, such as db.users.find({ age: { $gt: 30 } })',
+};
 
 // Keys the app handles globally. Monaco would otherwise swallow them (Cmd+K starts a chord).
 const passthrough = (key: string) => () => window.dispatchEvent(new CustomEvent('studio:command', { detail: key }));
 
 export const SqlEditor = React.forwardRef<SqlEditorHandle, SqlEditorProps>(
-  ({ documentId, value, active, onChange, onRun, onRunAll, onExplain, onFormat, onSelectionChange, getSchema }, ref) => {
+  ({ documentId, value, active, onChange, onRun, onRunAll, onExplain, onFormat, onSelectionChange, getSchema, language = 'sql' }, ref) => {
     const { theme } = useStudio();
     const hostRef = useRef<HTMLDivElement>(null);
     const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
@@ -53,7 +60,7 @@ export const SqlEditor = React.forwardRef<SqlEditorHandle, SqlEditorProps>(
     }));
 
     useEffect(() => {
-      const model = monaco.editor.createModel(value, 'sql', monaco.Uri.parse(`studio://query/${documentId}.sql`));
+      const model = monaco.editor.createModel(value, editorLanguage(language), monaco.Uri.parse(`studio://query/${documentId}.sql`));
       const unregister = registerSchemaSource(model.uri.toString(), () => callbacks.current.getSchema());
       const editor = monaco.editor.create(hostRef.current!, {
         model,
@@ -79,7 +86,7 @@ export const SqlEditor = React.forwardRef<SqlEditorHandle, SqlEditorProps>(
         wordWrap: 'off',
         fixedOverflowWidgets: true,
         contextmenu: true,
-        placeholder: 'Write SQL here, or press the run shortcut to execute it',
+        placeholder: PLACEHOLDER[language],
         suggest: { showWords: false },
         quickSuggestionsDelay: 120,
         stickyScroll: { enabled: false },
@@ -158,6 +165,15 @@ export const SqlEditor = React.forwardRef<SqlEditorHandle, SqlEditorProps>(
     useEffect(() => {
       monaco.editor.setTheme(monacoTheme(theme));
     }, [theme]);
+
+    // Switching the tab's connection to another kind of database switches the language.
+    useEffect(() => {
+      const editor = editorRef.current;
+      const model = editor?.getModel();
+      if (!editor || !model) return;
+      if (model.getLanguageId() !== editorLanguage(language)) monaco.editor.setModelLanguage(model, editorLanguage(language));
+      editor.updateOptions({ placeholder: PLACEHOLDER[language] });
+    }, [language]);
 
     // Edits from outside the editor, such as Format or Revert, keep the undo stack intact.
     useEffect(() => {

@@ -4,7 +4,8 @@ import { cleanError, useStudio } from '../../context/StudioContext';
 import { useSchema } from '../../context/SchemaContext';
 import { useWorkspace, WorkspaceTab } from '../../context/WorkspaceContext';
 import { TableStructure } from '../../../shared/types';
-import { qualifiedName } from '../../lib/sql';
+import { engineInfo } from '../../../shared/engines';
+import { browseQuery } from '../../lib/statements';
 import { formatBytes, formatCount } from '../../lib/utils';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -107,6 +108,9 @@ export const TableStructureView: React.FC<{ tab: Extract<WorkspaceTab, { kind: '
   }
 
   const fkByColumn = new Map(structure.foreignKeys.map((fk) => [fk.column, fk]));
+  const engine = engineInfo(profile?.engine);
+  const isDocument = engine.family === 'document';
+  const capital = (word: string) => word.charAt(0).toUpperCase() + word.slice(1);
   const { metadata } = structure;
   const metaRows: [string, string | undefined][] = [
     ['Schema', metadata?.schema],
@@ -127,7 +131,7 @@ export const TableStructureView: React.FC<{ tab: Extract<WorkspaceTab, { kind: '
           <p className="text-xxs text-muted-foreground">
             {[
               metadata?.schema,
-              `${formatCount(structure.columns.length)} columns`,
+              `${formatCount(structure.columns.length)} ${engine.terms.columns}`,
               metadata?.rowEstimate !== undefined ? `~${formatCount(metadata.rowEstimate)} rows` : null,
               metadata?.totalBytes !== undefined ? formatBytes(metadata.totalBytes) : null,
             ]
@@ -147,7 +151,7 @@ export const TableStructureView: React.FC<{ tab: Extract<WorkspaceTab, { kind: '
             variant="quiet"
             size="sm"
             onClick={() =>
-              newQuery(`SELECT *\nFROM ${qualifiedName(profile?.engine, tab.table, tab.schema)}\nLIMIT 100;`, tab.table, tab.profileId)
+              newQuery(browseQuery(profile?.engine, tab.table, tab.schema), tab.table, tab.profileId)
             }
           >
             <FileCode2 /> New query
@@ -162,17 +166,26 @@ export const TableStructureView: React.FC<{ tab: Extract<WorkspaceTab, { kind: '
 
       <Tabs defaultValue="columns" className="flex min-h-0 flex-1 flex-col">
         <TabsList>
-          <TabsTrigger value="columns"><ListTree /> Columns <Badge>{structure.columns.length}</Badge></TabsTrigger>
+          <TabsTrigger value="columns"><ListTree /> {capital(engine.terms.columns)} <Badge>{structure.columns.length}</Badge></TabsTrigger>
           <TabsTrigger value="indexes"><Layers /> Indexes <Badge>{structure.indexes.length}</Badge></TabsTrigger>
-          <TabsTrigger value="fks"><Link2 /> Foreign keys <Badge>{structure.foreignKeys.length}</Badge></TabsTrigger>
+          {(engine.features.foreignKeys || structure.foreignKeys.length > 0) && (
+            <TabsTrigger value="fks">
+              <Link2 /> {engine.features.foreignKeys ? 'Foreign keys' : 'References (inferred)'} <Badge>{structure.foreignKeys.length}</Badge>
+            </TabsTrigger>
+          )}
           <TabsTrigger value="constraints"><ShieldCheck /> Constraints <Badge>{structure.constraints?.length ?? 0}</Badge></TabsTrigger>
           <TabsTrigger value="info"><KeyRound /> Metadata</TabsTrigger>
-          <TabsTrigger value="ddl"><FileCode2 /> DDL</TabsTrigger>
+          <TabsTrigger value="ddl"><FileCode2 /> {isDocument ? 'Definition' : 'DDL'}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="columns" className="min-h-0 flex-1 overflow-auto">
+          {isDocument && (
+            <p className="px-3 pt-2 text-2xs text-muted-foreground">
+              MongoDB has no fixed fields. These come from a sample of up to 100 documents; a field missing from some of them shows as nullable.
+            </p>
+          )}
           <SimpleTable
-            empty="This table has no columns"
+            empty={isDocument ? 'No documents to sample fields from yet' : 'This table has no columns'}
             headers={['Column', 'Type', 'Nullable', 'Default', 'Keys']}
             rows={structure.columns.map((c) => [
               <Mono>{c.name}</Mono>,

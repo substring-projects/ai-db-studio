@@ -12,7 +12,7 @@ export default defineConfig({
         vite: {
           build: {
             rollupOptions: {
-              external: ['pg', 'mysql2', 'node:sqlite', 'electron'],
+              external: ['pg', 'mysql2', 'mongodb', 'bson', 'ejson-shell-parser', 'acorn', 'node:sqlite', 'electron'],
             },
           },
         },
