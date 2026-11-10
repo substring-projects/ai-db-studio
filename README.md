@@ -36,7 +36,8 @@ The assistant runs safe read queries on its own and shows you the results. Anyth
 
 - **SQL editor:** Monaco with syntax highlighting, completions for your tables and columns (including aliases), formatting, run selection, Explain and query cancellation.
 - **Results grid:** virtualized rendering, with column resizing, sorting, per-column filters, row selection, keyboard navigation, and copy or export to CSV and JSON.
-- **Table data:** page, sort and filter on the server, and insert, edit or delete rows after reviewing the generated SQL.
+- **Table data:** page, sort and filter on the server, and insert, edit or delete rows after reviewing the generated SQL. Foreign key columns offer a searchable list of the rows they can point to.
+- **Create table:** design columns, types, keys, auto-increment, defaults, checks, foreign keys and indexes, with a live preview of the SQL.
 - **Table structure:** columns, indexes, foreign keys, constraints, size and DDL for every table.
 - **Schema explorer:** connections, schemas, tables, views, columns, keys and indexes in one searchable tree, with full keyboard support.
 - **Workspace:** draggable tabs, a results panel with logs and statistics, query history, a command palette, and dark and light themes. Your layout and open tabs are restored when you reopen the app.
@@ -202,6 +203,7 @@ AI DB Studio is pre-release software. Before using it with production databases,
 - **TLS certificates aren't verified.** Traffic is encrypted, but the app doesn't confirm the server's identity, so it wouldn't detect a man-in-the-middle attack on an untrusted network.
 - **Row limits:** results keep the first 100,000 rows for your queries and 5,000 for AI queries. The limit applies after the database returns them, so a very large query still uses a lot of memory.
 - **Export** on a table tab covers the current page only.
+- **Very large tables:** with millions of rows, pages far into a table load slowly, the total row count may show as unknown, and "contains" filters and foreign key searches scan the whole table.
 - **Chat:** a reply you stop while it's streaming isn't saved to memory, and conversations don't share memory with each other.
 - **Small windows:** when space runs out the left sidebar can close automatically. Press `⌘B` to reopen it.
 
