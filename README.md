@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-green.svg?style=flat-square" alt="License: Apache 2.0" /></a>
-  <img src="https://img.shields.io/badge/version-0.3.0-blue.svg?style=flat-square" alt="Version 0.3.0" />
+  <img src="https://img.shields.io/badge/version-0.4.0-blue.svg?style=flat-square" alt="Version 0.4.0" />
   <img src="https://img.shields.io/badge/status-pre--release-orange.svg?style=flat-square" alt="Status: pre-release" />
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows-lightgrey.svg?style=flat-square" alt="Platforms: macOS and Windows" />
 </p>
@@ -76,10 +76,10 @@ Download the installer for your computer:
 
 | Platform | Download |
 | :--- | :--- |
-| **macOS** (any Mac) | [Universal DMG](https://github.com/substring-projects/ai-db-studio/releases/download/v0.3.0/AI.DB.Studio-0.3.0-universal.dmg) (186 MB) |
-| **macOS** (Apple Silicon) | [Apple Silicon DMG](https://github.com/substring-projects/ai-db-studio/releases/download/v0.3.0/AI.DB.Studio-0.3.0-arm64.dmg) (107 MB) |
-| **macOS** (Intel) | [Intel DMG](https://github.com/substring-projects/ai-db-studio/releases/download/v0.3.0/AI.DB.Studio-0.3.0.dmg) (114 MB) |
-| **Windows** (64-bit) | [Installer](https://github.com/substring-projects/ai-db-studio/releases/download/v0.3.0/AI.DB.Studio-Setup-0.3.0-x64.exe) (92 MB) or [portable version](https://github.com/substring-projects/ai-db-studio/releases/download/v0.3.0/AI.DB.Studio.0.3.0.exe) (82 MB) |
+| **macOS** (any Mac) | [Universal DMG](https://github.com/substring-projects/ai-db-studio/releases/download/v0.4.0/AI-DB-Studio-0.4.0-mac-universal.dmg) (187 MB) |
+| **macOS** (Apple Silicon) | [Apple Silicon DMG](https://github.com/substring-projects/ai-db-studio/releases/download/v0.4.0/AI-DB-Studio-0.4.0-mac-arm64.dmg) (108 MB) |
+| **macOS** (Intel) | [Intel DMG](https://github.com/substring-projects/ai-db-studio/releases/download/v0.4.0/AI-DB-Studio-0.4.0-mac-x64.dmg) (115 MB) |
+| **Windows** (64-bit) | [Installer](https://github.com/substring-projects/ai-db-studio/releases/download/v0.4.0/AI-DB-Studio-Setup-0.4.0-x64.exe) (92 MB) or [portable version](https://github.com/substring-projects/ai-db-studio/releases/download/v0.4.0/AI-DB-Studio-Portable-0.4.0-x64.exe) (83 MB) |
 
 All versions are on the [Releases page](https://github.com/substring-projects/ai-db-studio/releases).
 
@@ -87,6 +87,12 @@ These installers aren't signed with a developer certificate yet, so the first ti
 
 - **macOS:** if it's blocked, go to **System Settings → Privacy & Security** and choose **Open Anyway**.
 - **Windows:** on the SmartScreen warning, choose **More info → Run anyway**.
+
+### Updates
+
+From version 0.4.0, AI DB Studio keeps itself up to date. It checks GitHub for a new release at launch and twice a day, and when one is out, an **Update available** button appears in the title bar. Each update is signed and checked before it installs, then the app restarts on the new version. You can also choose **Check for Updates…** from the app menu (Help menu on Windows), or turn automatic checks off in **Settings → Updates**. The check sends nothing about your databases.
+
+If you're on 0.3.0 or earlier, download 0.4.0 above once; updates arrive in the app after that. The portable Windows version can't update itself, so it links to the new download instead.
 
 ### Build from source
 
