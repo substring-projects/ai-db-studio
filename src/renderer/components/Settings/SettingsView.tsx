@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Moon, ShieldCheck, Sun } from 'lucide-react';
+import { Loader2, Moon, RefreshCw, ShieldCheck, Sun } from 'lucide-react';
+import { useUpdates } from '../../context/UpdateContext';
 import { useStudio } from '../../context/StudioContext';
 import { useWorkspace } from '../../context/WorkspaceContext';
 import { cn } from '../../lib/utils';
@@ -27,6 +28,8 @@ const THEME_OPTIONS = [
 export const SettingsView: React.FC = () => {
   const { settings, updateSettings, theme, toggleTheme, showToast } = useStudio();
   const { clearLogs } = useWorkspace();
+  const updates = useUpdates();
+  const checking = updates.status.state === 'checking';
 
   const [aiProvider, setAiProvider] = useState(settings.aiProvider);
   const [aiEndpoint, setAiEndpoint] = useState(settings.aiEndpoint);
@@ -164,6 +167,30 @@ export const SettingsView: React.FC = () => {
           <Button variant="outline" size="sm" onClick={clearLogs}>
             Clear session log
           </Button>
+        </Section>
+
+        <Section title="Updates" description="New versions come from the project’s GitHub releases.">
+          <div className="flex items-center gap-3">
+            <span className="text-xs">
+              Version <span className="font-mono">{updates.version || '…'}</span>
+            </span>
+            <Button type="button" variant="outline" size="sm" disabled={checking} onClick={updates.checkNow}>
+              {checking ? <Loader2 className="animate-spin" /> : <RefreshCw />} Check for updates
+            </Button>
+          </div>
+          <label className="flex cursor-pointer items-start gap-2 text-xs">
+            <Checkbox
+              className="mt-0.5"
+              checked={settings.autoCheckUpdates !== false}
+              onChange={(e) => updateSettings({ autoCheckUpdates: e.target.checked })}
+            />
+            <span>
+              Check for updates automatically
+              <span className="mt-0.5 block text-xxs leading-4 text-muted-foreground">
+                At launch and twice a day, the app asks GitHub for the latest version number. Nothing about your databases is sent.
+              </span>
+            </span>
+          </label>
         </Section>
       </form>
     </div>

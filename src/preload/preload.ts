@@ -8,6 +8,7 @@ import {
   SqlDraft,
   WorkspaceSettings,
 } from "../shared/types";
+import type { UpdateStatus } from "../shared/update";
 
 contextBridge.exposeInMainWorld("electronAPI", {
   isSecureStorageAvailable: () => ipcRenderer.invoke("storage:secure-available"),
@@ -86,6 +87,20 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getSettings: () => ipcRenderer.invoke("settings:get"),
   saveSettings: (s: Partial<WorkspaceSettings>) =>
     ipcRenderer.invoke("settings:save", s),
+
+  // Updates
+  getAppVersion: () => ipcRenderer.invoke("app:version"),
+  getUpdateStatus: () => ipcRenderer.invoke("update:status"),
+  checkForUpdates: (manual: boolean) => ipcRenderer.invoke("update:check", manual),
+  downloadUpdate: () => ipcRenderer.invoke("update:download"),
+  installUpdate: () => ipcRenderer.invoke("update:install"),
+  openReleasePage: (version?: string) => ipcRenderer.invoke("update:open-release", version),
+  takeWhatsNew: () => ipcRenderer.invoke("update:whats-new"),
+  onUpdateStatus: (listener: (status: UpdateStatus) => void) => {
+    const handler = (_: unknown, status: UpdateStatus) => listener(status);
+    ipcRenderer.on("update:status", handler);
+    return () => ipcRenderer.removeListener("update:status", handler);
+  },
 
   // AI Assistant
   aiChat: (request: AiChatRequest) => ipcRenderer.invoke("ai:chat", request),

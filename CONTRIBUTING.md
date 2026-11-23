@@ -43,6 +43,21 @@ Keep decisions about what is safe to run in the main process, where tests can co
 - Add tests for changes to SQL classification, query review or what is sent to AI models.
 - Never commit workspaces, passwords, API keys, real result rows or credentials in fixtures.
 
+## Releasing
+
+Releases are built by [.github/workflows/release.yml](.github/workflows/release.yml).
+
+1. Bump `version` in `package.json` (`npm version 0.4.0 --no-git-tag-version`) and commit it.
+2. Write the user-facing notes in `.github/release-notes.md`. They become the release body and appear in the app's update dialog and What's New screen.
+3. Tag and push: `git tag v0.4.0 && git push origin main v0.4.0`. The tag must match `package.json`.
+4. The workflow builds macOS and Windows, signs the update files and creates a **draft** release. Check it, then publish it. Installed apps see the update only after it is published.
+
+### In-app updates
+
+The app reads `latest-mac.yml` or `latest.yml` from the latest published release and trusts it only if its `.sig` verifies against the public key in `src/main/updateKey.ts`. The download must then match the SHA-512 in that file. On macOS the app bundle is swapped after the app quits; on Windows the NSIS installer runs silently. The portable Windows build and copies run from a DMG link to the release page instead.
+
+The private signing key is the `UPDATE_SIGNING_KEY` repository secret, created once with `node scripts/update-keygen.mjs`. Keep a backup: if it is lost, installed copies cannot verify updates until people install a release by hand.
+
 ## Safety rules
 
 Do not weaken these to make a feature easier:

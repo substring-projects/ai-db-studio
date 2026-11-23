@@ -3,6 +3,7 @@ import { StudioProvider } from './context/StudioContext';
 import { SchemaProvider } from './context/SchemaContext';
 import { WorkspaceProvider } from './context/WorkspaceContext';
 import { ChatProvider } from './context/ChatContext';
+import { UpdateProvider } from './context/UpdateContext';
 import { TooltipProvider } from './components/ui/tooltip';
 import { AppShell } from './components/shell/AppShell';
 
@@ -12,7 +13,9 @@ export const App: React.FC = () => (
       <SchemaProvider>
         <WorkspaceProvider>
           <ChatProvider>
-            <AppShell />
+            <UpdateProvider>
+              <AppShell />
+            </UpdateProvider>
           </ChatProvider>
         </WorkspaceProvider>
       </SchemaProvider>

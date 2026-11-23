@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url';
 import { StorageService } from './services/StorageService';
 import { ConnectionManager } from './services/ConnectionManager';
 import { ChatAgentService } from './services/ai/ChatAgentService';
+import { UpdateService } from './services/UpdateService';
+import { RELEASES_URL } from '../shared/update';
 import { AiChatRequest, ConnectionProfile, FilterRule, SqlDraft, WorkspaceSettings } from '../shared/types';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -14,6 +16,11 @@ let mainWindow: BrowserWindow | null = null;
 const storage = new StorageService();
 const connections = new ConnectionManager();
 let chatAgent: ChatAgentService;
+const updates = new UpdateService({
+  autoCheck: () => storage.getSettings().autoCheckUpdates !== false,
+  skippedVersion: () => storage.getSettings().skippedUpdateVersion,
+  onStatus: (status) => mainWindow?.webContents.send('update:status', status),
+});
 
 const WINDOW_THEME = {
   dark: { background: '#121317', symbols: '#949CA8' },
@@ -28,7 +35,27 @@ const TITLE_BAR_HEIGHT = 36;
 function setupMenu() {
   const send = (command: string) => () => mainWindow?.webContents.send('menu:command', command);
   const template: Electron.MenuItemConstructorOptions[] = [
-    ...(process.platform === 'darwin' ? [{ role: 'appMenu' as const }] : []),
+    ...(process.platform === 'darwin'
+      ? [
+          {
+            role: 'appMenu' as const,
+            submenu: [
+              { role: 'about' as const },
+              { label: 'Check for Updates…', click: send('check-updates') },
+              { type: 'separator' as const },
+              { label: 'Settings…', accelerator: 'Cmd+,', click: send('settings') },
+              { type: 'separator' as const },
+              { role: 'services' as const },
+              { type: 'separator' as const },
+              { role: 'hide' as const },
+              { role: 'hideOthers' as const },
+              { role: 'unhide' as const },
+              { type: 'separator' as const },
+              { role: 'quit' as const },
+            ],
+          },
+        ]
+      : []),
     {
       label: 'File',
       submenu: [
@@ -57,6 +84,9 @@ function setupMenu() {
       ],
     },
     { role: 'windowMenu' },
+    ...(process.platform === 'darwin'
+      ? []
+      : [{ label: 'Help', submenu: [{ label: 'Check for Updates…', click: send('check-updates') }] }]),
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
@@ -130,6 +160,7 @@ app.whenReady().then(() => {
   setupIpc();
   setupMenu();
   createWindow();
+  updates.start();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -141,6 +172,7 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
+  updates.stop();
   connections.disconnectAll().catch((err) => console.error('Error during cleanup', err));
 });
 
@@ -228,6 +260,19 @@ function setupIpc() {
   ipcMain.handle('history:get', () => storage.getHistory());
   ipcMain.handle('history:add', (_, item: any) => storage.addHistory(item));
   ipcMain.handle('history:clear', () => storage.clearHistory());
+
+  // Updates
+  ipcMain.handle('app:version', () => app.getVersion());
+  ipcMain.handle('update:status', () => updates.getStatus());
+  ipcMain.handle('update:check', (_, manual: boolean) => updates.check(manual === true));
+  ipcMain.handle('update:download', () => updates.download());
+  ipcMain.handle('update:install', () => updates.install());
+  ipcMain.handle('update:whats-new', () => updates.takeWhatsNew());
+  ipcMain.handle('update:open-release', (_, version?: string) =>
+    shell.openExternal(
+      typeof version === 'string' && /^\d+\.\d+\.\d+[\w.-]*$/.test(version) ? `${RELEASES_URL}/tag/v${version}` : `${RELEASES_URL}/latest`
+    )
+  );
 
   // Settings
   ipcMain.handle('settings:get', () => storage.getSettings());

@@ -1,0 +1,5 @@
+- In-app updates: AI DB Studio now checks for new versions and installs them for you, then shows what changed
+- Press F5 to refresh the open table
+- Explorer: filter matches are highlighted, the open table is marked, and Esc clears the filter
+- Cleaner results grid: true/false values, JSON and foreign keys are easier to read
+- Polished dialogs, a new welcome screen with your connections, and chart labels that no longer get cut off

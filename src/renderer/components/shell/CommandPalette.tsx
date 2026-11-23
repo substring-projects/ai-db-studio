@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import {
+  ArrowDownToLine,
   Cable,
   Eye,
   FileCode2,
@@ -18,6 +19,7 @@ import { useStudio } from '../../context/StudioContext';
 import { useSchema } from '../../context/SchemaContext';
 import { useWorkspace } from '../../context/WorkspaceContext';
 import { useChat } from '../../context/ChatContext';
+import { useUpdates } from '../../context/UpdateContext';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '../ui/command';
 
 export const CommandPalette: React.FC = () => {
@@ -25,6 +27,7 @@ export const CommandPalette: React.FC = () => {
   const { schemas } = useSchema();
   const workspace = useWorkspace();
   const { openNewConversation } = useChat();
+  const { checkNow } = useUpdates();
   const { paletteOpen, setPaletteOpen } = workspace;
 
   const run = (action: () => void) => () => {
@@ -104,6 +107,9 @@ export const CommandPalette: React.FC = () => {
                 </CommandItem>
                 <CommandItem shortcut="Mod+L" onSelect={run(workspace.toggleAiPanel)}>
                   <Sparkles /> Toggle AI panel
+                </CommandItem>
+                <CommandItem onSelect={run(checkNow)}>
+                  <ArrowDownToLine /> Check for updates
                 </CommandItem>
                 <CommandItem onSelect={run(toggleTheme)}>
                   {theme === 'dark' ? <Sun /> : <Moon />} Switch to {theme === 'dark' ? 'light' : 'dark'} theme

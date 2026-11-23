@@ -16,6 +16,14 @@
     "package.json"
   ],
   "asar": true,
+  "publish": [
+    {
+      "provider": "github",
+      "owner": "substring-projects",
+      "repo": "ai-db-studio",
+      "releaseType": "draft"
+    }
+  ],
   "mac": {
     "target": [
       {
@@ -31,7 +39,8 @@
     "icon": "build/icon.icns",
     "hardenedRuntime": false,
     "gatekeeperAssess": false,
-    "identity": "-"
+    "identity": "-",
+    "artifactName": "AI-DB-Studio-${version}-mac-${arch}.${ext}"
   },
   "dmg": {
     "contents": [
@@ -70,6 +79,9 @@
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true,
     "shortcutName": "AI DB Studio",
-    "artifactName": "${productName}-Setup-${version}-${arch}.${ext}"
+    "artifactName": "AI-DB-Studio-Setup-${version}-${arch}.${ext}"
+  },
+  "portable": {
+    "artifactName": "AI-DB-Studio-Portable-${version}-${arch}.${ext}"
   }
 }

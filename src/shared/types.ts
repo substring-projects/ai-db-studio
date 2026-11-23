@@ -1,3 +1,4 @@
+import type { UpdateStatus, WhatsNew } from './update';
 /** Every supported database. Add an entry here, in engines.ts and in the main-process driver registry. */
 export type Engine = 'POSTGRESQL' | 'MYSQL' | 'MONGODB';
 export type TlsMode = 'PREFER' | 'REQUIRE' | 'DISABLE';
@@ -159,6 +160,10 @@ export interface WorkspaceSettings {
   aiApiKey?: string;
   /** Lets the AI model read query result rows. Off unless the user turns it on. */
   aiShareResults?: boolean;
+  /** Looks for a new release at launch and twice a day. On unless turned off. */
+  autoCheckUpdates?: boolean;
+  /** A release the person chose to skip; quiet checks do not announce it. */
+  skippedUpdateVersion?: string;
 }
 
 export interface AiMessage {
@@ -253,6 +258,17 @@ export interface ElectronAPI {
   // Settings
   getSettings: () => Promise<WorkspaceSettings>;
   saveSettings: (settings: Partial<WorkspaceSettings>) => Promise<WorkspaceSettings>;
+
+  // Updates
+  getAppVersion: () => Promise<string>;
+  getUpdateStatus: () => Promise<UpdateStatus>;
+  checkForUpdates: (manual: boolean) => Promise<UpdateStatus>;
+  downloadUpdate: () => Promise<UpdateStatus>;
+  installUpdate: () => Promise<void>;
+  openReleasePage: (version?: string) => Promise<void>;
+  /** Notes for the version that just installed, once per update. */
+  takeWhatsNew: () => Promise<WhatsNew | null>;
+  onUpdateStatus: (listener: (status: UpdateStatus) => void) => () => void;
 
   // AI Assistant
   aiChat: (request: AiChatRequest) => Promise<void>;

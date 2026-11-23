@@ -13,6 +13,8 @@ import { Workspace } from './Workspace';
 import { AiPanel } from './AiPanel';
 import { StatusBar } from './StatusBar';
 import { CommandPalette } from './CommandPalette';
+import { UpdateDialog, WhatsNewDialog } from './UpdateDialogs';
+import { useUpdates } from '../../context/UpdateContext';
 
 const AI_PANEL_DEFAULT_WIDTH = 400;
 
@@ -20,6 +22,7 @@ const useGlobalCommands = () => {
   const { drafts, updateDraft, showToast } = useStudio();
   const workspace = useWorkspace();
   const { openNewConversation } = useChat();
+  const { checkNow } = useUpdates();
   const selectActivity = useSelectActivity();
 
   const handler = useRef<(command: string) => void>(() => undefined);
@@ -58,6 +61,9 @@ const useGlobalCommands = () => {
         break;
       case 'settings':
         workspace.openSingleton('settings');
+        break;
+      case 'check-updates':
+        checkNow();
         break;
       case 'next-tab':
         workspace.cycleTab(1);
@@ -211,6 +217,8 @@ export const AppShell: React.FC = () => {
       </div>
       <StatusBar />
       <CommandPalette />
+      <UpdateDialog />
+      <WhatsNewDialog />
       <ToastContainer />
     </div>
   );

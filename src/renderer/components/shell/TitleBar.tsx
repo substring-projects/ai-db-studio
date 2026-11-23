@@ -1,5 +1,6 @@
 import React from 'react';
-import { Moon, PanelBottom, PanelLeft, Search, Sparkles, Sun } from 'lucide-react';
+import { ArrowDownToLine, Moon, PanelBottom, PanelLeft, RotateCw, Search, Sparkles, Sun } from 'lucide-react';
+import { hasPendingUpdate, useUpdates } from '../../context/UpdateContext';
 import { useStudio } from '../../context/StudioContext';
 import { useWorkspace } from '../../context/WorkspaceContext';
 import { cn, isMac, shortcutLabel } from '../../lib/utils';
@@ -10,6 +11,7 @@ import logoImg from '../../assets/logo.png';
 export const TitleBar: React.FC = () => {
   const { theme, toggleTheme } = useStudio();
   const { sidebarOpen, toggleSidebar, panelOpen, togglePanel, aiPanelOpen, toggleAiPanel, setPaletteOpen } = useWorkspace();
+  const { status, setDialogOpen } = useUpdates();
 
   return (
     <header
@@ -37,6 +39,21 @@ export const TitleBar: React.FC = () => {
       </div>
 
       <div className="no-drag ml-auto flex items-center gap-0.5">
+        {hasPendingUpdate(status) && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="mr-1.5 gap-1.5 rounded-full bg-primary/10 px-2.5 font-medium text-primary hover:bg-primary/15"
+            onClick={() => setDialogOpen(true)}
+          >
+            {status.state === 'ready' ? <RotateCw /> : <ArrowDownToLine />}
+            {status.state === 'ready'
+              ? 'Restart to update'
+              : status.state === 'downloading'
+                ? `Updating${status.progress !== null ? ` ${status.progress}%` : '…'}`
+                : 'Update available'}
+          </Button>
+        )}
         <Tooltip content={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'} shortcut="Mod+B">
           <Button variant="quiet" size="icon-sm" aria-label="Toggle sidebar" aria-pressed={sidebarOpen} onClick={toggleSidebar}>
             <PanelLeft className={cn(sidebarOpen && 'text-foreground')} />

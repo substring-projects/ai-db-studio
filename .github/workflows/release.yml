@@ -1,0 +1,136 @@
+# Builds AI DB Studio for macOS and Windows and attaches everything to a draft GitHub release.
+#
+# Run it by pushing a version tag that matches package.json:
+#   git tag v0.4.0 && git push origin v0.4.0
+# or from the Actions tab ("Run workflow"), which uses the version in package.json.
+#
+# Output:
+#   macOS    AI-DB-Studio-<ver>-mac-{universal,arm64,x64}.dmg   installers
+#            AI-DB-Studio-<ver>-mac-{universal,arm64,x64}.zip   used by the in-app updater
+#   Windows  AI-DB-Studio-Setup-<ver>-x64.exe                   installer, also used by the updater
+#            AI-DB-Studio-Portable-<ver>-x64.exe                portable, no install
+#   Updater  latest-mac.yml, latest.yml and their .sig signatures
+#
+# The release stays a draft: check it, then press Publish. Installed apps only see a release
+# once it is published, because they read /releases/latest.
+
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write # create the release and upload the installers
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - name: macOS
+            os: macos-latest
+            target: --mac
+          - name: Windows
+            os: windows-latest
+            target: --win
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Check the tag matches package.json
+        if: github.ref_type == 'tag'
+        shell: bash
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [ "${GITHUB_REF_NAME}" != "v${version}" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match package.json version ${version}"
+            exit 1
+          fi
+
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+
+      - name: Package
+        shell: bash
+        env:
+          # Builds are ad-hoc signed (see electron-builder.json); never look for a keychain identity.
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          # --- Optional code signing ---------------------------------------
+          # Unsigned builds work, but macOS Gatekeeper and Windows SmartScreen warn on first
+          # launch. To sign, add these repository secrets, uncomment them, and remove
+          # "identity": "-" from electron-builder.json
+          # (see https://www.electron.build/code-signing):
+          # CSC_LINK: ${{ secrets.CSC_LINK }}
+          # CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          # APPLE_ID: ${{ secrets.APPLE_ID }}
+          # APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: npx electron-builder ${{ matrix.target }} --publish never
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ runner.os }}
+          if-no-files-found: error
+          path: |
+            release/*.dmg
+            release/*.zip
+            release/*.exe
+            release/latest*.yml
+
+  release:
+    name: Draft release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist-release
+          pattern: release-*
+          merge-multiple: true
+
+      # The in-app updater only trusts update files signed with this key.
+      # Required: repository secret UPDATE_SIGNING_KEY with the contents of the private key
+      # made by scripts/update-keygen.mjs. Never commit it.
+      - name: Sign update files
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        run: node scripts/sign-update.mjs dist-release/latest.yml dist-release/latest-mac.yml
+
+      # Release notes come from .github/release-notes.md (update it for each release).
+      # They are shown in the app's update dialog and its What's New screen.
+      - name: Create the draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          tag="v${version}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag exists; replacing its files."
+            gh release upload "$tag" dist-release/* --clobber
+          else
+            gh release create "$tag" dist-release/* \
+              --draft \
+              --target "$GITHUB_SHA" \
+              --title "AI DB Studio ${tag}" \
+              --notes-file .github/release-notes.md
+          fi
