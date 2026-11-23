@@ -117,6 +117,8 @@ interface QueryResultsGridProps {
   onInsertRow?: () => void;
   onDeleteRows?: (rows: Row[]) => void;
   onRefresh?: () => void;
+  /** Keyboard shortcut for refresh, shown in its tooltip. */
+  refreshShortcut?: string;
   onCancel?: () => void;
   onOpenInTab?: () => void;
   onOpenReferencedRow?: (refTable: string, refColumn: string, value: unknown) => void;
@@ -221,6 +223,7 @@ export const QueryResultsGrid: React.FC<QueryResultsGridProps> = React.memo(
     onInsertRow,
     onDeleteRows,
     onRefresh,
+    refreshShortcut,
     onCancel,
     onOpenInTab,
     onOpenReferencedRow,
@@ -601,7 +604,7 @@ export const QueryResultsGrid: React.FC<QueryResultsGridProps> = React.memo(
               </Tooltip>
             )}
             {onRefresh && (
-              <Tooltip content={embedded ? 'Run again' : 'Refresh'}>
+              <Tooltip content={embedded ? 'Run again' : 'Refresh'} shortcut={refreshShortcut}>
                 <Button variant="quiet" size="icon-sm" aria-label="Refresh" onClick={onRefresh}>
                   <RefreshCw className={cn(loading && 'animate-spin')} />
                 </Button>

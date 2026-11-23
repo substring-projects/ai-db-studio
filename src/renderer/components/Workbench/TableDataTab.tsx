@@ -134,6 +134,20 @@ export const TableDataTab: React.FC<{ tab: Extract<WorkspaceTab, { kind: 'table'
     refreshCount();
   }, [load, refreshCount]);
 
+  // F5 refreshes the table in view, as in most database tools. Skipped while a dialog is open,
+  // so it never reloads the rows behind an edit in progress.
+  useEffect(() => {
+    if (!active) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'F5' || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+      if (document.querySelector('[role="dialog"], [role="alertdialog"]')) return;
+      e.preventDefault();
+      reload();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [active, reload]);
+
   const setPageSize = (size: number) => {
     prefs.set('studio:pageSize', size);
     setPageSizeState(size);
@@ -332,6 +346,7 @@ export const TableDataTab: React.FC<{ tab: Extract<WorkspaceTab, { kind: 'table'
         fileBase={tab.table}
         server={server}
         onRefresh={reload}
+        refreshShortcut="F5"
         onEditCell={
           isView
             ? undefined
