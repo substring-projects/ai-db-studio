@@ -26,7 +26,7 @@
 
 ![The SQL editor and results, with the AI assistant open beside them](docs/screenshots/workbench-dark.png)
 
-Write SQL by hand, or ask in plain language. AI DB Studio keeps both in one window: browse your schema, run queries and edit data in the workbench, and keep the assistant open beside it.
+Write SQL or MongoDB commands by hand, or ask in plain language. AI DB Studio keeps both in one window: browse your schema, run queries and edit data in the workbench, and keep the assistant open beside it.
 
 The assistant runs safe read queries on its own and shows you the results. Anything that could change your data stops and waits for you to approve that exact statement. By default it sees your schema but not your rows, and it can run on a local model through Ollama.
 
@@ -38,12 +38,24 @@ The assistant runs safe read queries on its own and shows you the results. Anyth
 - **Results grid:** virtualized rendering, with column resizing, sorting, per-column filters, row selection, keyboard navigation, and copy or export to CSV and JSON.
 - **Table data:** page, sort and filter on the server, and insert, edit or delete rows after reviewing the generated SQL. Foreign key columns offer a searchable list of the rows they can point to.
 - **Create table:** design columns, types, keys, auto-increment, defaults, checks, foreign keys and indexes, with a live preview of the SQL.
-- **MongoDB:** connect with host and port or a connection string (Atlas, replica sets), browse collections with fields sampled from documents, filter, sort and page on the server, and run shell commands such as `db.users.find({ age: { $gt: 30 } }).sort({ name: 1 })`. Edit a field, a whole document, or insert and delete documents, from the collection view or from `find()` results; BSON types such as ObjectId, dates and decimals are kept. Create collections (standard, capped or time series) with validation rules and indexes, and see an ER diagram built from references inferred from ObjectId fields. The AI assistant writes and runs MongoDB commands too. Writes wait for your approval like SQL changes, and the shell syntax is parsed, never run as JavaScript.
 - **Table structure:** columns, indexes, foreign keys, constraints, size and DDL for every table.
+- **ER diagram:** tables and their relationships, with search and zoom.
 - **Schema explorer:** connections, schemas, tables, views, columns, keys and indexes in one searchable tree, with full keyboard support.
 - **Workspace:** draggable tabs, a results panel with logs and statistics, query history, a command palette, and dark and light themes. Your layout and open tabs are restored when you reopen the app.
 
 ![Table data with a server-side filter, in the light theme](docs/screenshots/table-light.png)
+
+### MongoDB
+
+- **Connect** with host and port, or a connection string for Atlas and replica sets. A username and password in a pasted string are moved to the encrypted password field.
+- **Browse** collections, views and time series collections. Fields are inferred from a sample of documents, and filtering, sorting and paging run on the server.
+- **Query** with shell commands such as `db.users.find({ age: { $gt: 30 } }).sort({ name: 1 })`, with highlighting and completions for collections, methods, fields and operators. Commands are parsed, never run as JavaScript.
+- **Edit** a field or a whole document, and insert or delete documents, from the collection view or from `find()` results. Types such as ObjectId, dates and decimals are kept.
+- **Create collections**, standard, capped or time series, with validation rules and indexes.
+- **ER diagram** built from references inferred from ObjectId fields, such as `userId` pointing at `users`.
+- **The AI assistant** writes and runs MongoDB commands, with the same review for anything that changes data.
+
+![A MongoDB collection with ObjectIds, dates and nested documents](docs/screenshots/mongodb-dark.png)
 
 ### AI assistant
 
@@ -92,10 +104,10 @@ Installers are written to `release/`.
 ### Connect to a database
 
 1. Click **+** in the Database Explorer.
-2. Enter your connection details and click **Test connection**.
+2. Choose **PostgreSQL**, **MySQL** or **MongoDB**, enter your connection details and click **Test connection**. For MongoDB Atlas or a replica set, paste the connection string instead of a host and port.
 3. Click the connection in the tree to connect and browse it.
 
-**TLS:** use **Disable** for a local server without TLS, because **Prefer** and **Require** both need the server to support it. See [Known limitations](#known-limitations) for how certificates are handled.
+**TLS:** use **Disable** for a local server without TLS, because **Prefer** and **Require** both need the server to support it. For MongoDB, **Prefer** keeps the driver's default, which uses TLS for `mongodb+srv://` connection strings. See [Known limitations](#known-limitations) for how certificates are handled.
 
 ## Connect an AI model
 
@@ -123,13 +135,16 @@ Models without tool calling still work: the assistant falls back to writing SQL 
 | A change: `INSERT`, `UPDATE`, `DELETE`, schema changes | Waits on a review card showing the SQL and target database, and runs only if you approve |
 | A destructive change: `DROP`, `TRUNCATE`, or `DELETE`/`UPDATE` with no `WHERE` | Same review card, plus a required "I understand this cannot be undone" checkbox |
 | A read with side effects: `pg_sleep`, `nextval`, `FOR UPDATE` | Also goes to review |
+| A MongoDB read: `find`, `aggregate`, `countDocuments`, `distinct` | Runs automatically, with a 30-second limit |
+| A MongoDB change, or a read using `$where`, `$function`, `$out` or `$merge` | Waits on the review card |
+| A destructive MongoDB command: `drop`, `dropDatabase`, or `deleteMany`/`updateMany` with an empty filter | Same review card, plus the "cannot be undone" checkbox |
 
 ![A review card waiting for approval in the side panel](docs/screenshots/review-dark.png)
 
 - **The model can only propose.** The app holds the statement, and only your click can release it.
 - **An approval covers one statement.** It is single-use and tied to that exact SQL and connection.
 - **Hidden statements are caught.** Scripts like `SELECT 1; DROP TABLE x` go to review like any other write.
-- **The database enforces reads.** Automatic queries run in a read-only transaction, so the database itself refuses writes.
+- **The database enforces reads.** On PostgreSQL and MySQL, automatic queries run in a read-only transaction, so the database itself refuses writes. MongoDB has no read-only mode, so its commands must pass the app's own check, which only lets plain reads through.
 - **Your own SQL gets the same protection.** Anything you write that changes data asks for confirmation first.
 
 To review every query, including reads, turn off **Run safe read queries automatically** in the chat's model menu.
@@ -163,6 +178,7 @@ On Windows, use `Ctrl` in place of `⌘`.
 | `⌘ T` | New query |
 | `⌘ W` | Close tab |
 | `⌃ Tab` | Next tab |
+| `F5` | Refresh the open table (`fn F5` on most Mac keyboards) |
 | `⌘ K` | Command palette |
 | `⌘ B` | Toggle the sidebar |
 | `⌘ J` | Toggle the bottom panel |
@@ -176,7 +192,7 @@ On Windows, use `Ctrl` in place of `⌘`.
 | | Status |
 | :--- | :--- |
 | **PostgreSQL** | Tested with version 17 |
-| **MySQL** | Tested with version 8.4 |
+| **MySQL** | Tested with versions 8.4 and 9.6 |
 | **MongoDB** | Tested with version 7.0 (driver supports 4.2 and later) |
 | **Other versions, MariaDB, cloud-hosted databases** | Not tested. They may work, but aren't verified yet |
 | **macOS** | Developed and tested on macOS |
@@ -206,6 +222,7 @@ AI DB Studio is pre-release software. Before using it with production databases,
 - **Row limits:** results keep the first 100,000 rows for your queries and 5,000 for AI queries. The limit applies after the database returns them, so a very large query still uses a lot of memory.
 - **Export** on a table tab covers the current page only.
 - **Very large tables:** with millions of rows, pages far into a table load slowly, the total row count may show as unknown, and "contains" filters and foreign key searches scan the whole table.
+- **MongoDB:** cancelling stops reads but not a write already running, because a half-finished `deleteMany` can't be rolled back. A script with several commands runs them one by one, so a failure part-way leaves the earlier ones applied. Text filters on numbers, ids and dates need MongoDB 4.2 or newer.
 - **Chat:** a reply you stop while it's streaming isn't saved to memory, and conversations don't share memory with each other.
 - **Small windows:** when space runs out the left sidebar can close automatically. Press `⌘B` to reopen it.
 
