@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Copy, ListTree, Plus, Settings2, ShieldCheck, Trash2 } from 'lucide-react';
+import { Copy, Layers, ListTree, Plus, Settings2, ShieldCheck, Trash2 } from 'lucide-react';
 import {
   BSON_TYPES,
   BsonTypeName,
@@ -73,7 +73,7 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({ da
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent title="Create collection" description={database ? `In database ${database}` : 'MongoDB'} className="max-w-3xl">
+      <DialogContent title="Create collection" description={database ? `In database ${database}` : 'MongoDB'} className="max-w-3xl" icon={<Layers />}>
         <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
           <DialogBody className="space-y-3">
             <div className="space-y-1">

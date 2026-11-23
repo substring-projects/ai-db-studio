@@ -5,7 +5,17 @@ import { X } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Button, buttonVariants } from './button';
 
-const overlayClasses = 'fixed inset-0 z-50 bg-black/50 backdrop-blur-[1.5px] animate-overlay-in';
+const overlayClasses = 'fixed inset-0 z-50 bg-black/35 backdrop-blur-[2px] animate-overlay-in dark:bg-black/55';
+
+/** The icon tile beside a dialog title, tinted to say what kind of dialog it is. */
+export type DialogTone = 'default' | 'danger' | 'warning';
+const ICON_TILE: Record<DialogTone, string> = {
+  default: 'border-primary/15 bg-primary/10 text-primary',
+  danger: 'border-destructive/20 bg-destructive/10 text-destructive',
+  warning: 'border-warning/25 bg-warning/10 text-warning',
+};
+const iconTile = (tone: DialogTone) =>
+  cn('flex size-8 shrink-0 items-center justify-center rounded-lg border [&_svg]:size-4', ICON_TILE[tone]);
 const contentClasses =
   'fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[calc(100vw-48px)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground shadow-dialog animate-content-in';
 
@@ -16,6 +26,7 @@ interface DialogContentProps extends Omit<React.ComponentPropsWithoutRef<typeof 
   title: React.ReactNode;
   description?: React.ReactNode;
   icon?: React.ReactNode;
+  tone?: DialogTone;
 }
 
 export const DialogContent: React.FC<DialogContentProps> = ({
@@ -24,6 +35,7 @@ export const DialogContent: React.FC<DialogContentProps> = ({
   title,
   description,
   icon,
+  tone = 'default',
   ...props
 }) => (
   <DialogPrimitive.Portal>
@@ -34,9 +46,7 @@ export const DialogContent: React.FC<DialogContentProps> = ({
     >
       <div className="flex shrink-0 items-start gap-3 border-b border-border px-5 py-3.5">
         {icon && (
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-muted-foreground [&_svg]:size-4">
-            {icon}
-          </span>
+          <span className={iconTile(tone)}>{icon}</span>
         )}
         <div className="min-w-0 flex-1">
           <DialogPrimitive.Title className="truncate text-sm font-semibold leading-5 tracking-[-0.005em]">{title}</DialogPrimitive.Title>
@@ -77,6 +87,7 @@ interface AlertDialogContentProps
   title: React.ReactNode;
   description?: React.ReactNode;
   icon?: React.ReactNode;
+  tone?: DialogTone;
 }
 
 export const AlertDialogContent: React.FC<AlertDialogContentProps> = ({
@@ -85,6 +96,7 @@ export const AlertDialogContent: React.FC<AlertDialogContentProps> = ({
   title,
   description,
   icon,
+  tone = 'default',
   ...props
 }) => (
   <AlertDialogPrimitive.Portal>
@@ -92,7 +104,7 @@ export const AlertDialogContent: React.FC<AlertDialogContentProps> = ({
     <AlertDialogPrimitive.Content className={cn(contentClasses, 'max-w-md', className)} {...props}>
       <div className="flex shrink-0 items-start gap-3 px-5 pt-4">
         {icon && (
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-border bg-muted [&_svg]:size-4">{icon}</span>
+          <span className={iconTile(tone)}>{icon}</span>
         )}
         <div className="min-w-0 flex-1">
           <AlertDialogPrimitive.Title className="text-sm font-semibold leading-5">{title}</AlertDialogPrimitive.Title>

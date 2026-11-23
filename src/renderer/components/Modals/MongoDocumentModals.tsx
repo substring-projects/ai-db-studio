@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileJson } from 'lucide-react';
+import { FileJson, Pencil } from 'lucide-react';
 import type { TableColumn } from '../../../shared/types';
 import { insertStatement, replaceStatement, toShell, updateFieldStatement } from '../../../shared/mongoShell';
 import { Button } from '../ui/button';
@@ -71,7 +71,7 @@ export const MongoEditFieldModal: React.FC<EditFieldProps> = ({ collection, fiel
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent title={`Edit ${field}`} description={`${collection} · document ${toShell(id)}`} className="max-w-lg">
+      <DialogContent title={`Edit ${field}`} description={`${collection} · document ${toShell(id)}`} className="max-w-lg" icon={<Pencil />}>
         <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
           <DialogBody className="space-y-2">
             <div className="flex items-center justify-between">
@@ -158,6 +158,7 @@ export const MongoDocumentModal: React.FC<DocumentProps> = ({ collection, mode, 
             : `${collection} · document ${toShell(id)}. Fields you remove here are removed from the document.`
         }
         className="max-w-2xl"
+        icon={<FileJson />}
       >
         <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
           <DialogBody className="space-y-2">

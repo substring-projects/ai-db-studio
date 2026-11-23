@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Filter, Plus, Trash2 } from 'lucide-react';
 import { FilterOperator, FilterRule } from '../../../shared/types';
 import { FILTER_OPERATORS } from '../../lib/grid';
 import { cn } from '../../lib/utils';
@@ -41,7 +41,7 @@ export const AdvancedFilterModal: React.FC<AdvancedFilterModalProps> = ({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent title="Filter rows" description={tableName} className="max-w-xl">
+      <DialogContent title="Filter rows" description={tableName} className="max-w-xl" icon={<Filter />}>
         <DialogBody className="space-y-2.5">
           <div className="flex items-center gap-2 text-xs">
             <span className="text-muted-foreground">Match</span>

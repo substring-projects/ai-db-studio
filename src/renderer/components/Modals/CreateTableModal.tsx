@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ChevronDown, ChevronRight, Clock, Columns3, Copy, KeyRound, Link2, ListTree, Plus, Settings2, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Clock, Columns3, Copy, KeyRound, Link2, ListTree, Plus, Settings2, Table2, Trash2 } from 'lucide-react';
 import { Engine } from '../../../shared/types';
 import { useSchema } from '../../context/SchemaContext';
 import {
@@ -254,6 +254,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({ engine = 'PO
         title="Create table"
         description={schema ? `In schema ${schema}` : isMy ? 'MySQL' : 'PostgreSQL'}
         className="max-w-4xl"
+        icon={<Table2 />}
       >
         <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
           <DialogBody className="space-y-3">

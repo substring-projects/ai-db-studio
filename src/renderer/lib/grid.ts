@@ -20,6 +20,13 @@ export function formatCell(value: unknown): string {
   return String(value);
 }
 
+/** Whether a boolean-ish cell reads as true: drivers return true, 1, '1', 't' or 'true'. */
+export function isTruthyCell(value: unknown): boolean {
+  if (value === true || value === 1) return true;
+  const s = String(value).toLowerCase();
+  return s === 'true' || s === '1' || s === 't';
+}
+
 /**
  * The plain value behind a MongoDB Extended JSON wrapper: numbers for { $numberDecimal: "9.5" }
  * and friends, ISO text for { $date: … }. Anything else is returned as it is, so SQL values

@@ -53,7 +53,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({ streaming, disabled,
   };
 
   return (
-    <div className="rounded-lg border border-input bg-background transition-colors duration-100 focus-within:border-ring focus-within:ring-1 focus-within:ring-ring">
+    <div className="rounded-lg border border-input bg-background shadow-raised transition-[border-color,box-shadow] duration-100 focus-within:border-ring/70 focus-within:ring-[3px] focus-within:ring-ring/15">
       <textarea
         ref={ref}
         rows={1}

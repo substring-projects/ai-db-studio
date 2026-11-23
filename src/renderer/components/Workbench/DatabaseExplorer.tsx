@@ -23,6 +23,7 @@ import {
   Table2,
   Trash2,
   Unplug,
+  X,
 } from 'lucide-react';
 import { ConnectionProfile, DbTable } from '../../../shared/types';
 import { cleanError, useStudio } from '../../context/StudioContext';
@@ -68,10 +69,23 @@ type Node =
 const IndentGuides: React.FC<{ depth: number }> = ({ depth }) => (
   <>
     {Array.from({ length: depth }).map((_, i) => (
-      <span key={i} aria-hidden className="absolute inset-y-0 w-px bg-border/60" style={{ left: 13 + i * INDENT }} />
+      <span key={i} aria-hidden className="absolute inset-y-0 w-px bg-border/40 transition-colors duration-150 group-hover/tree:bg-border" style={{ left: 13 + i * INDENT }} />
     ))}
   </>
 );
+
+/** Marks where the filter text matches, so it is clear why a row is shown. */
+const Highlight: React.FC<{ text: string; query: string }> = ({ text, query }) => {
+  const at = query ? text.toLowerCase().indexOf(query) : -1;
+  if (at < 0) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, at)}
+      <mark className="rounded-[2px] bg-warning/25 text-inherit">{text.slice(at, at + query.length)}</mark>
+      {text.slice(at + query.length)}
+    </>
+  );
+};
 
 export const DatabaseExplorer: React.FC = () => {
   const {
@@ -87,7 +101,7 @@ export const DatabaseExplorer: React.FC = () => {
     showToast,
   } = useStudio();
   const { schemas, structures, loadSchema, loadStructure } = useSchema();
-  const { openTableData, openStructure, openErDiagram, newQuery, runSql, tabs, closeTab, openSingleton } = useWorkspace();
+  const { openTableData, openStructure, openErDiagram, newQuery, runSql, tabs, activeTab, closeTab, openSingleton } = useWorkspace();
 
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(prefs.get<string[]>('studio:tree', [])));
   const [search, setSearch] = useState('');
@@ -481,10 +495,26 @@ export const DatabaseExplorer: React.FC = () => {
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape' && search) {
+                e.stopPropagation();
+                setSearch('');
+              }
+            }}
             placeholder="Filter tables and columns"
             aria-label="Filter tables and columns"
-            className="h-6 pl-5 text-xxs"
+            className={cn('h-6 pl-5 text-xxs', search && 'pr-6')}
           />
+          {search && (
+            <button
+              type="button"
+              aria-label="Clear filter"
+              onClick={() => setSearch('')}
+              className="absolute right-1 top-1/2 flex size-4 -translate-y-1/2 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+              <X className="size-3" />
+            </button>
+          )}
         </div>
       )}
 
@@ -518,7 +548,7 @@ export const DatabaseExplorer: React.FC = () => {
                 if (node) setFocusedId(node.id);
               }}
               aria-activedescendant={focusedId ? `tree-${focusedId}` : undefined}
-              className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden pb-2 outline-none"
+              className="group/tree min-h-0 flex-1 overflow-y-auto overflow-x-hidden pb-2 outline-none"
             >
               <div style={{ height: virtualizer.getTotalSize() }} className="relative">
                 {virtualizer.getVirtualItems().map((virtual) => {
@@ -581,10 +611,17 @@ export const DatabaseExplorer: React.FC = () => {
                     );
                   } else if (node.kind === 'table') {
                     const Icon = node.table.type === 'VIEW' ? Eye : Table2;
+                    const isOpenInTab =
+                      (activeTab?.kind === 'table' || activeTab?.kind === 'structure') &&
+                      activeTab.profileId === node.profile.id &&
+                      activeTab.table === node.table.name &&
+                      (activeTab.schema ?? '') === (node.table.schema ?? '');
                     body = (
                       <>
-                        <Icon className="size-3.5 shrink-0 text-muted-foreground" />
-                        <span className="min-w-0 truncate">{node.table.name}</span>
+                        <Icon className={cn('size-3.5 shrink-0', isOpenInTab ? 'text-primary' : 'text-muted-foreground')} />
+                        <span className={cn('min-w-0 truncate', isOpenInTab && 'font-medium')}>
+                          <Highlight text={node.table.name} query={query} />
+                        </span>
                       </>
                     );
                   } else if (node.kind === 'item') {
@@ -592,7 +629,9 @@ export const DatabaseExplorer: React.FC = () => {
                     body = (
                       <>
                         <Icon className={cn('size-3 shrink-0 text-muted-foreground/70', node.iconClass)} />
-                        <span className="shrink-0 font-mono text-xxs">{node.label}</span>
+                        <span className="shrink-0 font-mono text-xxs">
+                          <Highlight text={node.label} query={query} />
+                        </span>
                         {node.detail && (
                           <span title={node.detail} className="min-w-0 truncate pl-0.5 font-mono text-2xs text-muted-foreground">
                             {node.detail}
@@ -648,6 +687,14 @@ export const DatabaseExplorer: React.FC = () => {
                   );
                 })}
               </div>
+              {query && !nodes.some((n) => n.kind === 'table') && (
+                <p className="px-4 py-3 text-xxs text-muted-foreground">
+                  Nothing matches “{search.trim()}”.{' '}
+                  <button type="button" className="font-medium text-foreground hover:underline" onClick={() => setSearch('')}>
+                    Clear filter
+                  </button>
+                </p>
+              )}
             </div>
           </ContextMenuTrigger>
           {menuNode?.kind === 'connection' && (

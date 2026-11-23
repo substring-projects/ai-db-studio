@@ -76,7 +76,11 @@ const BarChart: React.FC<{ spec: ChartSpec }> = ({ spec }) => {
   const labelWidth = Math.min(160, Math.max(48, longest * 6.4 + 8), width * 0.32);
   const labelledTips = groupCount === 1 && count <= 12;
   const plotLeft = labelWidth + 8;
-  const plotRight = Math.max(plotLeft + 40, width - (labelledTips ? 56 : 12));
+  // Reserve room for the longest value label so tips never clip at the panel edge.
+  const tipWidth = labelledTips
+    ? Math.max(...spec.series.flatMap((s) => s.values.map((v) => formatValue(v).length))) * 6.4 + 10
+    : 12;
+  const plotRight = Math.max(plotLeft + 40, width - tipWidth);
   const scale = (v: number) => plotLeft + ((v - low) / (high - low || 1)) * (plotRight - plotLeft);
   const zero = scale(0);
   const maxChars = Math.floor(labelWidth / 6.2);

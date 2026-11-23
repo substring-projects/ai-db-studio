@@ -33,10 +33,11 @@ export const WarningConfirmModal: React.FC<WarningConfirmModalProps> = ({ propos
       <AlertDialogContent
         title={risk.high ? 'This statement is destructive' : 'Run this statement?'}
         description="Changes commit immediately. DDL statements cannot be rolled back."
-        icon={risk.high ? <ShieldAlert className="text-destructive" /> : <AlertTriangle className="text-warning" />}
+        icon={risk.high ? <ShieldAlert /> : <AlertTriangle />}
+        tone={risk.high ? 'danger' : 'warning'}
         className="max-w-xl"
       >
-        <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto px-4 pb-3 pt-2.5">
+        <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto px-5 pb-4 pt-3">
           <div className="flex items-center gap-2 text-xs">
             <Database className="size-3.5 shrink-0 text-muted-foreground" />
             <span className="min-w-0 truncate">
@@ -50,11 +51,11 @@ export const WarningConfirmModal: React.FC<WarningConfirmModalProps> = ({ propos
               {proposal.kind}
             </Badge>
           </div>
-          <pre className="max-h-48 overflow-auto rounded-sm border border-border bg-muted p-2.5">
+          <pre className="max-h-48 overflow-auto rounded-md border border-border bg-muted/60 p-3">
             <SqlCode sql={proposal.sql} />
           </pre>
           {risk.high && (
-            <div className="space-y-1.5 rounded-sm border border-destructive/30 bg-destructive/[0.06] p-2.5 text-xs">
+            <div className="space-y-1.5 rounded-md border border-destructive/30 bg-destructive/[0.06] p-3 text-xs">
               {risk.reasons.map((reason) => (
                 <p key={reason} className="text-destructive">
                   {reason}

@@ -47,6 +47,7 @@ import {
   compareCells,
   exportResult,
   formatCell,
+  isTruthyCell,
   inferColumnKind,
   kindFromTypeName,
   matchesRule,
@@ -793,25 +794,24 @@ export const QueryResultsGrid: React.FC<QueryResultsGridProps> = React.memo(
                                 {isNull ? (
                                   <span className="select-none font-sans text-2xs italic text-muted-foreground/70">NULL</span>
                                 ) : (info.kind === 'boolean' || typeof value === 'boolean' || Boolean(info.meta?.typeName && /bool|bit|tinyint\(1\)/i.test(info.meta.typeName))) ? (
-                                  <Badge
-                                    variant="outline"
-                                    className={cn(
-                                      'font-mono text-[10px] px-1 py-0 h-4 border font-medium leading-none select-none',
-                                      value === true || String(value).toLowerCase() === 'true' || value === 1 || String(value) === '1' || String(value).toLowerCase() === 't'
-                                        ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                                        : 'border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400'
-                                    )}
-                                  >
-                                    {value === true || String(value).toLowerCase() === 'true' || value === 1 || String(value) === '1' || String(value).toLowerCase() === 't' ? 'true' : 'false'}
-                                  </Badge>
+                                  // A false value is data, not an error: true gets a quiet accent, false stays neutral.
+                                  isTruthyCell(value) ? (
+                                    <span className="inline-flex select-none items-center gap-1.5 text-success">
+                                      <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-current" />
+                                      true
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex select-none items-center gap-1.5 text-muted-foreground">
+                                      <span aria-hidden className="size-1.5 shrink-0 rounded-full border border-current" />
+                                      false
+                                    </span>
+                                  )
                                 ) : info.kind === 'enum' ? (
-                                  <Badge variant="outline" className="font-mono text-[10px] px-1.5 py-0 h-4 border-primary/25 bg-primary/10 text-primary">
+                                  <Badge variant="outline" className="h-4 border-primary/20 bg-primary/[0.07] px-1.5 py-0 font-mono text-[10px] font-medium text-primary">
                                     {String(value)}
                                   </Badge>
                                 ) : info.kind === 'json' || (typeof value === 'object' && value !== null) ? (
-                                  <span className="truncate font-mono text-2xs text-muted-foreground/90 bg-muted/40 px-1 py-0.5 rounded border border-border/40">
-                                    {formatCell(value)}
-                                  </span>
+                                  <span className="truncate text-muted-foreground">{formatCell(value)}</span>
                                 ) : info.fk && value !== '' ? (
                                   <span
                                     className={cn(
@@ -827,7 +827,7 @@ export const QueryResultsGrid: React.FC<QueryResultsGridProps> = React.memo(
                                     title={onOpenReferencedRow ? `Jump to ${info.fk.refTable} where ${info.fk.refColumn} = ${value}` : `References ${info.fk.refTable}.${info.fk.refColumn}`}
                                   >
                                     <span className="truncate">{formatCell(value)}</span>
-                                    <Link2 className="size-2.5 shrink-0 opacity-40 group-hover/fk:opacity-100 text-sky-500" />
+                                    <Link2 aria-hidden className="size-2.5 shrink-0 text-sky-500 opacity-0 transition-opacity duration-75 group-hover/row:opacity-50 group-hover/fk:opacity-100" />
                                   </span>
                                 ) : (
                                   <span className="truncate">{formatCell(value)}</span>

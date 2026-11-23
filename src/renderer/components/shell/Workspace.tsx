@@ -1,6 +1,6 @@
 import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useDefaultLayout, type PanelImperativeHandle } from 'react-resizable-panels';
-import { Cable, FileCode2, Sparkles } from 'lucide-react';
+import { Cable, FileCode2, Search, Sparkles } from 'lucide-react';
 import { useWorkspace, WorkspaceTab } from '../../context/WorkspaceContext';
 import { useStudio } from '../../context/StudioContext';
 import { useChat } from '../../context/ChatContext';
@@ -8,6 +8,7 @@ import { cn, shortcutLabel } from '../../lib/utils';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '../ui/resizable';
 import { Button } from '../ui/button';
 import { Kbd, Skeleton } from '../ui/feedback';
+import { EngineMark } from '../ui/engine-mark';
 import { TableDataTab } from '../Workbench/TableDataTab';
 import { TableStructureView } from '../Workbench/TableStructureView';
 import { ErDiagramView } from '../Workbench/ErDiagramView';
@@ -55,31 +56,96 @@ const TabView: React.FC<{ tab: WorkspaceTab; active: boolean }> = ({ tab, active
 };
 
 const Welcome: React.FC = () => {
-  const { newQuery } = useWorkspace();
+  const { newQuery, setPaletteOpen } = useWorkspace();
   const { openNewConversation } = useChat();
-  const { openEditProfileModal, profiles, activeProfile } = useStudio();
+  const { openEditProfileModal, profiles, activeProfile, setActiveProfileId, connectedProfileIds } = useStudio();
+
+  const actions: { icon: React.ReactNode; label: string; shortcut: string; run: () => void }[] = [
+    { icon: <FileCode2 />, label: 'New query', shortcut: 'Mod+T', run: () => newQuery('', undefined, activeProfile?.id) },
+    { icon: <Sparkles />, label: 'New AI conversation', shortcut: 'Mod+Shift+L', run: openNewConversation },
+    { icon: <Search />, label: 'Search tables and commands', shortcut: 'Mod+K', run: () => setPaletteOpen(true) },
+  ];
 
   return (
-    <div className="flex h-full items-center justify-center p-8">
-      <div className="w-full max-w-sm">
-        <img src={logoImg} alt="" className="mb-3 size-8 rounded-md" />
-        <h1 className="text-base font-semibold">AI DB Studio</h1>
-        <p className="mt-0.5 text-xs text-muted-foreground">Query your databases by hand, or ask in plain language.</p>
-        <div className="mt-4 flex flex-col">
-          {profiles.length === 0 && (
-            <Button variant="ghost" className="justify-start" onClick={() => openEditProfileModal(null)}>
-              <Cable /> Add a database connection
-            </Button>
-          )}
-          <Button variant="ghost" className="justify-start" onClick={() => newQuery('', undefined, activeProfile?.id)}>
-            <FileCode2 /> New query
-            <Kbd className="ml-auto">{shortcutLabel('Mod+T')}</Kbd>
-          </Button>
-          <Button variant="ghost" className="justify-start" onClick={openNewConversation}>
-            <Sparkles /> New AI conversation
-            <Kbd className="ml-auto">{shortcutLabel('Mod+Shift+L')}</Kbd>
-          </Button>
+    <div className="flex h-full items-center justify-center overflow-auto p-8">
+      <div className="w-full max-w-md">
+        <div className="flex items-center gap-3">
+          <img src={logoImg} alt="" className="size-9 rounded-lg shadow-raised" />
+          <div>
+            <h1 className="text-base font-semibold tracking-tight">AI DB Studio</h1>
+            <p className="text-xs text-muted-foreground">Query your databases by hand, or ask in plain language.</p>
+          </div>
         </div>
+
+        <section className="mt-7">
+          <h2 className="section-label mb-1.5 px-2">Start</h2>
+          <div className="flex flex-col">
+            {actions.map((a) => (
+              <Button key={a.label} variant="ghost" className="justify-start" onClick={a.run}>
+                {a.icon} {a.label}
+                <Kbd className="ml-auto">{shortcutLabel(a.shortcut)}</Kbd>
+              </Button>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-5">
+          <div className="mb-1.5 flex items-center justify-between px-2">
+            <h2 className="section-label">Connections</h2>
+            {profiles.length > 0 && (
+              <button
+                type="button"
+                className="text-2xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+                onClick={() => openEditProfileModal(null)}
+              >
+                Add
+              </button>
+            )}
+          </div>
+          {profiles.length === 0 ? (
+            <button
+              type="button"
+              onClick={() => openEditProfileModal(null)}
+              className="flex w-full items-center gap-3 rounded-lg border border-dashed border-input px-3 py-3 text-left transition-colors hover:border-primary/50 hover:bg-accent/50"
+            >
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                <Cable className="size-4" />
+              </span>
+              <span>
+                <span className="block text-xs font-medium">Add a database connection</span>
+                <span className="block text-2xs text-muted-foreground">PostgreSQL, MySQL or MongoDB, saved on this device.</span>
+              </span>
+            </button>
+          ) : (
+            <div className="flex flex-col">
+              {profiles.slice(0, 6).map((p) => {
+                const connected = connectedProfileIds.includes(p.id);
+                return (
+                  <Button
+                    key={p.id}
+                    variant="ghost"
+                    className="h-auto justify-start py-1.5"
+                    title={`New query on ${p.name}`}
+                    onClick={() => {
+                      setActiveProfileId(p.id);
+                      newQuery('', undefined, p.id);
+                    }}
+                  >
+                    <span
+                      aria-label={connected ? 'Connected' : 'Not connected'}
+                      className={cn('size-1.5 shrink-0 rounded-full', connected ? 'bg-success' : 'bg-muted-foreground/40')}
+                    />
+                    <EngineMark engine={p.engine} size="xs" />
+                    <span className="min-w-0 truncate">{p.name}</span>
+                    <span className="ml-auto min-w-0 truncate pl-3 font-mono text-2xs font-normal text-muted-foreground">
+                      {p.host}
+                    </span>
+                  </Button>
+                );
+              })}
+            </div>
+          )}
+        </section>
       </div>
     </div>
   );

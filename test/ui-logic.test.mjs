@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert';
 import { assessRisk, qualifiedName, quoteIdent, rowWhereClause, tokenizeSql } from '../src/renderer/lib/sql.ts';
-import { compareCells, formatCell, inferColumnKind, matchesRule, toDelimited } from '../src/renderer/lib/grid.ts';
+import { compareCells, formatCell, inferColumnKind, isTruthyCell, matchesRule, toDelimited } from '../src/renderer/lib/grid.ts';
 import { chooseChart, niceTicks } from '../src/renderer/lib/chart.ts';
 
 test('identifiers are quoted for each dialect', () => {
@@ -89,4 +89,9 @@ test('series too small for one shared axis stay out of the chart', () => {
 test('axis ticks are round and include zero', () => {
   assert.deepEqual(niceTicks(0, 8000), [0, 2000, 4000, 6000, 8000]);
   assert.ok(niceTicks(-5, 5).includes(0));
+});
+
+test('boolean cells read true from every driver form', () => {
+  for (const v of [true, 1, '1', 't', 'T', 'true', 'TRUE']) assert.equal(isTruthyCell(v), true, String(v));
+  for (const v of [false, 0, '0', 'f', 'false', '', 2]) assert.equal(isTruthyCell(v), false, String(v));
 });

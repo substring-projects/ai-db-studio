@@ -7,7 +7,7 @@ import { Dialog, DialogBody, DialogContent, DialogFooter } from '../ui/dialog';
 import { Checkbox, Input, Label, Textarea } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Badge } from '../ui/badge';
-import { Check, Sparkles } from 'lucide-react';
+import { Check, Pencil, Sparkles } from 'lucide-react';
 import { ForeignKeyPicker } from './ForeignKeyPicker';
 
 interface EditCellModalProps {
@@ -128,7 +128,7 @@ export const EditCellModal: React.FC<EditCellModalProps> = ({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent title={`Edit ${columnName}`} description={`${tableName} · ${columnType || inferredKind}`} className="max-w-md">
+      <DialogContent title={`Edit ${columnName}`} description={`${tableName} · ${columnType || inferredKind}`} className="max-w-md" icon={<Pencil />}>
         <form onSubmit={submit}>
           <DialogBody className="space-y-3">
             <div className="flex items-center justify-between">

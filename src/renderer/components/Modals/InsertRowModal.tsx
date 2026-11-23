@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Rows3 } from 'lucide-react';
 import { Engine, ForeignKey, TableColumn } from '../../../shared/types';
 import { quoteIdent } from '../../lib/sql';
 import { Badge } from '../ui/badge';
@@ -63,6 +64,7 @@ export const InsertRowModal: React.FC<InsertRowModalProps> = ({
         title={`Insert into ${tableName}`}
         description="Columns left empty use their default value."
         className="max-w-lg"
+        icon={<Rows3 />}
       >
         <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
           <DialogBody className="px-0 py-1">
@@ -70,7 +72,7 @@ export const InsertRowModal: React.FC<InsertRowModalProps> = ({
               const isNull = nulls[col.name] ?? false;
               const fk = profileId ? foreignKeys.find((f) => f.column.toLowerCase() === col.name.toLowerCase()) : undefined;
               return (
-                <div key={col.name} className="flex items-center gap-3 px-4 py-1">
+                <div key={col.name} className="flex items-center gap-3 px-5 py-1">
                   <label htmlFor={`insert-${col.name}`} className="flex w-44 shrink-0 flex-col">
                     <span className="flex items-center gap-1 truncate font-mono text-xxs">
                       <span className="truncate">{col.name}</span>

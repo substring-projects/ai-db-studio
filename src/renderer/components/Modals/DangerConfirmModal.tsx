@@ -23,10 +23,11 @@ export const DangerConfirmModal: React.FC<DangerConfirmModalProps> = ({
     <AlertDialogContent
       title={title}
       description={subtitle}
-      icon={<Trash2 className="text-destructive" />}
+      icon={<Trash2 />}
+      tone="danger"
       className="max-w-sm"
     >
-      <p className="selectable whitespace-pre-wrap break-words px-4 pb-3 pl-[42px] pt-1.5 text-xs leading-5">{message}</p>
+      <p className="selectable whitespace-pre-wrap break-words pb-4 pl-16 pr-5 pt-2 text-xs leading-5">{message}</p>
       <DialogFooter>
         <AlertDialogCancel>Cancel</AlertDialogCancel>
         <AlertDialogAction destructive onClick={onConfirm}>
