@@ -36,12 +36,13 @@ The assistant runs safe read queries on its own and shows you the results. Anyth
 
 - **SQL editor:** Monaco with syntax highlighting, completions for your tables and columns (including aliases), formatting, run selection, Explain and query cancellation.
 - **Results grid:** virtualized rendering, with column resizing, sorting, per-column filters, row selection, keyboard navigation, and copy or export to CSV and JSON.
-- **Table data:** page, sort and filter on the server, and insert, edit or delete rows after reviewing the generated SQL. Foreign key columns offer a searchable list of the rows they can point to.
+- **Table data:** page, sort and filter on the server, refresh with `F5`, and insert, edit or delete rows after reviewing the generated SQL. Foreign key columns offer a searchable list of the rows they can point to, and clicking a foreign key value opens the table it references.
 - **Create table:** design columns, types, keys, auto-increment, defaults, checks, foreign keys and indexes, with a live preview of the SQL.
 - **Table structure:** columns, indexes, foreign keys, constraints, size and DDL for every table.
 - **ER diagram:** tables and their relationships, with search and zoom.
-- **Schema explorer:** connections, schemas, tables, views, columns, keys and indexes in one searchable tree, with full keyboard support.
-- **Workspace:** draggable tabs, a results panel with logs and statistics, query history, a command palette, and dark and light themes. Your layout and open tabs are restored when you reopen the app.
+- **Schema explorer:** connections, schemas, tables, views, columns, keys and indexes in one searchable tree, with full keyboard support. Filter matches are highlighted and the table open in the current tab is marked.
+- **Workspace:** draggable tabs, a results panel with logs and statistics, query history, a command palette, and dark and light themes. Your layout and open tabs are restored when you reopen the app, and the start screen lists your connections.
+- **Updates:** new versions install from inside the app, with release notes and a What's New screen. See [Updates](#updates).
 
 ![Table data with a server-side filter, in the light theme](docs/screenshots/table-light.png)
 
@@ -213,6 +214,7 @@ Everything stays on your computer, in the app's data folder (on macOS, `~/Librar
 | :--- | :--- |
 | `studio-storage.json` | Connections, saved queries, query history and settings. Passwords and the AI API key are **encrypted with your system's keychain** |
 | `ai-memory.json` | Conversation memory: messages and the SQL that ran, never result rows |
+| `update-pending.json` | Present only while an update installs: the new version's release notes, for the What's New screen. Deleted on the next launch |
 | Browser storage in the app | Layout, open tabs and the conversations shown in the chat, without result rows |
 
 Apart from passwords and the API key, these files aren't encrypted, so saved queries, history and conversations are readable by anyone with access to your user account. The two JSON files are readable only by your user.
@@ -255,7 +257,8 @@ src/
 │       ├── drivers/        One driver per database (sql/ for PostgreSQL and MySQL, mongo/)
 │       ├── ConnectionManager.ts   Open connections, write approvals, AI read-only gate
 │       ├── SqlClassifier.ts       Decides what is read-only
-│       └── StorageService.ts      Local settings and saved data
+│       ├── StorageService.ts      Local settings and saved data
+│       └── UpdateService.ts       Checks, verifies and installs updates
 ├── preload/                The typed bridge between main and renderer
 ├── renderer/               React interface
 │   ├── components/
@@ -265,9 +268,15 @@ src/
 │   │   └── ui/             Shared components built on Radix
 │   ├── context/            Application state
 │   └── lib/                SQL, grid, chart and Monaco helpers
-└── shared/                 Types, the engine catalog and MongoDB shell helpers
+└── shared/                 Types, the engine catalog, MongoDB shell and update helpers
 test/                       Unit tests
+scripts/                    Update signing: key generation and the signing step
+.github/workflows/          CI on every push, and the tag-triggered release
 ```
+
+### Releases
+
+Push a `vX.Y.Z` tag that matches `package.json` and the [release workflow](.github/workflows/release.yml) builds macOS and Windows, signs the update files and creates a draft release. See [Releasing](CONTRIBUTING.md#releasing) for the steps.
 
 Built with Electron, React 19, TypeScript, Tailwind CSS, Radix UI, Monaco Editor, TanStack Table and LangChain.
 
